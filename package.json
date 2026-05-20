@@ -1,6 +1,6 @@
 {
   "name": "splitgame",
-  "version": "0.2.2",
+  "version": "0.3.1",
   "description": "Play games in a split terminal overlay alongside your CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
@@ -17,6 +17,7 @@
     "watch": "tsc -w",
     "start": "node bin/splitgame.js",
     "test": "vitest run",
+    "postinstall": "node bin/postinstall.js",
     "preuninstall": "node bin/preuninstall.js"
   },
   "engines": {

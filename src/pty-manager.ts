@@ -55,6 +55,18 @@ export class PtyManager {
   }
 
   write(data: string): void {
+    // ConPTY double-translation fix: outer terminal uses VT convention (0x7F=Backspace,
+    // 0x08=Ctrl+Backspace) but inner ConPTY uses Win32 convention (0x08=Backspace,
+    // 0x7F=Ctrl+Backspace). Swap so the child shell sees the correct key events.
+    if (process.platform === 'win32' && (data.includes('\x7f') || data.includes('\x08'))) {
+      let fixed = '';
+      for (let i = 0; i < data.length; i++) {
+        const c = data.charCodeAt(i);
+        fixed += c === 0x7f ? '\x08' : c === 0x08 ? '\x7f' : data[i];
+      }
+      this.ptyProcess?.write(fixed);
+      return;
+    }
     this.ptyProcess?.write(data);
   }
 

@@ -11,10 +11,10 @@ npm install -g splitgame
 # 2. One-time setup: auto-launch in every new terminal
 splitgame install
 
-# 3. Play! f12 at any time to toggle the game panel
+# 3. Press F12 to toggle the game panel
 ```
 
-That's it. Every new terminal session now has splitgame running in the background. The game panel starts hidden — **F12** (or your configured toggle key) to show it whenever you want a break. Press it again to hide and get back to work.
+Every new terminal starts with splitgame in the background — **F12** to play, **F12** to get back to work.
 
 Requires Node.js >= 18. Use `splitgame uninstall` to remove.
 

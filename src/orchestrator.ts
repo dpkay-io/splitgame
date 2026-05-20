@@ -387,8 +387,9 @@ export class Orchestrator {
   }
 
   private buildStatusBar(gameState: GameRenderState): string {
+    const toggle = this.toggleKeyLabel();
     if (this.inMenu) {
-      return ' Tab: switch sections';
+      return ` Tab: switch sections | ${toggle}:Hide`;
     }
 
     const mod = this.configManager.get('modifierKey') === 'ctrl' ? '^' : 'M-';
@@ -396,13 +397,12 @@ export class Orchestrator {
     const hiStr = hi > 0 ? ` Hi:${hi}` : '';
 
     if (gameState.status === 'gameover') {
-      return ` N:Menu R:New | OVER ${gameState.score}${hiStr}`;
+      return ` N:Menu R:New ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
     }
     if (gameState.status === 'paused') {
-      const toggleLabel = this.toggleKeyLabel();
-      return ` ${toggleLabel}: Resume game | ⏸ ${gameState.score}${hiStr}`;
+      return ` ${toggle}: Resume game | ⏸ ${gameState.score}${hiStr}`;
     }
-    return ` N:Menu M:Hide ${mod}←→:Size P:Pause | ${gameState.score}${hiStr}`;
+    return ` N:Menu ${toggle}:Hide ${mod}←→:Size P:Pause | ${gameState.score}${hiStr}`;
   }
 
   private toggleKeyLabel(): string {
