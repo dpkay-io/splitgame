@@ -16,6 +16,7 @@ export class InputRouter {
     private onChildInput: InputCallback,
     private onGameInput: (key: string) => void,
     private getFocus: () => InputFocus,
+    private onScroll: (delta: number) => void,
     toggleKey: ToggleKey = 'ctrl+]',
     modifierKey: ModifierKey = 'ctrl',
   ) {
@@ -103,8 +104,20 @@ export class InputRouter {
       }
     }
 
+    if (this.consumeMouseEvent(data)) return;
+
     this.forwardInput(data);
   };
+
+  private consumeMouseEvent(data: Buffer): boolean {
+    const s = data.toString('utf8');
+    const match = s.match(/^\x1b\[<(\d+);\d+;\d+[Mm]$/);
+    if (!match) return false;
+    const button = parseInt(match[1]);
+    if (button === 64) this.onScroll(-3);
+    else if (button === 65) this.onScroll(3);
+    return true;
+  }
 
   private checkSingleKeyToggle(data: Buffer): boolean {
     if (this.toggleKey === 'f12' && data.toString('utf8') === '\x1b[24~') return true;
@@ -142,16 +155,17 @@ export class InputRouter {
 
     if (data.length === 1 && data[0] === 0) return 'pause';
     if (s === 'p' || s === 'P') return 'pause';
-    if (s === 'm' || s === 'M') return 'minimize';
+    if (s === 'x' || s === 'X') return 'minimize';
     if (s === 'r' || s === 'R') return 'reset';
     if (s === 'f' || s === 'F') return 'flag';
-    if (s === 'n' || s === 'N') return 'next-game';
+    if (s === 'm' || s === 'M') return 'next-game';
     if (s === ' ') return 'space';
     if (s === '\r' || s === '\n') return 'enter';
     if (s === '\t') return 'tab';
     if (s === '\x1b[Z') return 'shift-tab';
 
     if (data.length === 1 && data[0] === 3) return 'ctrl-c';
+    if (data.length === 1 && data[0] === 0x1b) return 'escape';
 
     return null;
   }

@@ -1,76 +1,31 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { spawnSync } from 'child_process';
 import { Orchestrator } from './orchestrator';
 import { findGame, getGameList } from './game-registry';
 import { ConfigManager, CONFIG_KEYS, ConfigKey } from './config';
 import { handleInstallCommand, handleUninstallCommand } from './install-command';
+import { setupMcp } from './mcp-setup';
 
 function handleMcpSetup(): void {
-  const mcpServerPath = path.resolve(__dirname, '../bin/mcp-server.js');
-  if (!fs.existsSync(mcpServerPath)) {
-    process.stderr.write(`splitgame mcp-setup: MCP server not found at ${mcpServerPath}\n`);
+  const result = setupMcp(path.resolve(__dirname, '..'));
+
+  if (!result.mcpServerFound) {
+    process.stderr.write(`splitgame mcp-setup: MCP server not found at ${result.mcpServerPath}\n`);
     process.stderr.write('Run "npm run build" first.\n');
     process.exit(1);
   }
 
-  const configs = [
-    // Claude Code (CLI) Global Config
-    {
-      path: path.join(os.homedir(), '.claude.json'),
-      name: 'Claude Code'
-    },
-    // Claude Desktop (macOS/Windows)
-    {
-      path: process.platform === 'win32'
-        ? path.join(process.env.APPDATA || '', 'Claude', 'claude_desktop_config.json')
-        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
-      name: 'Claude Desktop'
-    }
-  ];
-
-  let configuredCount = 0;
-
-  for (const config of configs) {
-    // For Desktop config, we only write if the parent directory exists (Claude is installed)
-    if (config.name === 'Claude Desktop' && !fs.existsSync(path.dirname(config.path))) {
-      continue;
-    }
-
-    let data: any = {};
-    if (fs.existsSync(config.path)) {
-      try {
-        data = JSON.parse(fs.readFileSync(config.path, 'utf-8'));
-      } catch {
-        process.stderr.write(`splitgame mcp-setup: could not parse ${config.path}, skipping\n`);
-        continue;
-      }
-    }
-
-    if (!data.mcpServers) data.mcpServers = {};
-    data.mcpServers['splitgame'] = {
-      command: 'node',
-      args: [mcpServerPath],
-    };
-
-    try {
-      const dir = path.dirname(config.path);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      // Atomic write: write to temp file then rename over the original
-      const tmpPath = config.path + '.tmp';
-      fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
-      fs.renameSync(tmpPath, config.path);
+  for (const config of result.configs) {
+    if (config.status === 'configured') {
       process.stdout.write(`MCP server configured for ${config.name} in ${config.path}\n`);
-      configuredCount++;
-    } catch (e: any) {
-      process.stderr.write(`splitgame mcp-setup: failed to write ${config.path}: ${e.message}\n`);
+    } else if (config.status === 'parse-error') {
+      process.stderr.write(`splitgame mcp-setup: could not parse ${config.path}, skipping\n`);
     }
   }
 
-  if (configuredCount > 0) {
+  const configured = result.configs.filter(c => c.status === 'configured');
+  if (configured.length > 0) {
     process.stdout.write('\nRestart Claude Code or Claude Desktop to activate the splitgame tools.\n');
   } else {
     process.stderr.write('\nNo Claude configuration found. Ensure Claude Code or Claude Desktop is installed.\n');

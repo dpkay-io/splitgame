@@ -18,6 +18,8 @@ export function strikethrough(): string { return `${ESC}9m`; }
 export function clearScreen(): string { return `${ESC}2J${ESC}H`; }
 export function alternateScreen(): string { return `${ESC}?1049h`; }
 export function mainScreen(): string { return `${ESC}?1049l`; }
+export function enableMouseMode(): string { return `${ESC}?1000h${ESC}?1006h`; }
+export function disableMouseMode(): string { return `${ESC}?1000l${ESC}?1006l`; }
 
 export function fgColor(color: ANSIColor): string {
   switch (color.mode) {

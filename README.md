@@ -1,77 +1,101 @@
 # splitgame
 
-Play games in a split-terminal overlay alongside your CLI tools. The child process runs on the left; the game renders on the right. Toggle the game panel with a hotkey and get back to work instantly.
+**Don't wait. Play.**
+
+![splitgame — split-terminal with a game panel](https://raw.githubusercontent.com/dpkay-io/splitgame/main/splitgame.png)
+
+Your AI agent is writing code. Your build is running. Your deploy is rolling out. Instead of staring at a terminal, press **F12** and play a game — right there, in a split panel next to your work. When the task finishes, press **F12** again and you're back. Zero context switch.
 
 ## Get Started
 
 ```bash
-# 1. Install globally
+# Install globally
 npm install -g splitgame
 
-# 2. One-time setup: auto-launch in every new terminal
+# One-time setup: auto-launch in every new terminal
 splitgame install
 
-# 3. Press F12 to toggle the game panel
+# That's it. Press F12 anytime to play.
 ```
 
-Every new terminal starts with splitgame in the background — **F12** to play, **F12** to get back to work.
+Every new terminal session now has splitgame ready in the background. **F12** to play, **F12** to work. No windows to switch, no apps to open.
 
-Requires Node.js >= 18. Use `splitgame uninstall` to remove.
-
-## Quick Start (without install)
-
-```bash
-# Wrap any command with a game panel
-splitgame node server.js
-splitgame npm run dev
-splitgame python train.py
-
-# Start with a specific game
-splitgame -g tetris npm run dev
-```
+Requires Node.js >= 18. Use `splitgame uninstall` to remove anytime.
 
 ## Games
 
-| Game | ID | Description |
-|------|----|-------------|
-| Snake | `snake` | Classic snake - eat food, grow longer |
-| 2048 | `2048` | Slide and merge tiles to reach 2048 |
-| Tetris | `tetris` | Stack and clear lines with falling pieces |
-| Tic-Tac-Toe | `tictactoe` | Play against an unbeatable minimax AI |
-| Breakout | `breakout` | Bounce the ball to break all bricks |
-| Minesweeper | `minesweeper` | Flag mines and reveal safe cells |
-| Flappy Bird | `flappy` | Tap to fly through pipe gaps |
+Seven games, all playable right in your terminal:
 
-## Key Bindings
+| Game | Controls | Goal |
+|------|----------|------|
+| **Snake** | Arrow keys / WASD | Eat food, grow longer, don't hit yourself |
+| **2048** | Arrow keys / WASD | Slide & merge tiles to reach 2048 |
+| **Tetris** | Arrow keys / WASD, Space to drop | Clear lines, chase the high score |
+| **Tic-Tac-Toe** | Arrow keys + Enter | Beat the minimax AI — or challenge Claude |
+| **Breakout** | Left/Right arrows | Bounce the ball, break all the bricks |
+| **Minesweeper** | Arrows + Enter/F to flag | Reveal cells, flag mines, don't explode |
+| **Flappy Bird** | Space | Tap to flap, dodge the pipes |
 
-### Toggle & Navigation
+Start a specific game directly: `splitgame -g tetris`
+
+Browse all games from the in-app menu (press **M** during any game).
+
+## Play Against Claude
+
+splitgame has built-in support for playing games **with Claude Code** as your opponent. When Claude is connected, Tic-Tac-Toe switches from AI opponent to a live match — you vs Claude, right in the terminal.
+
+```bash
+# One-time setup: register the MCP server with Claude Code
+splitgame mcp-setup
+```
+
+Once configured, just ask Claude to play. It can see the board, make moves, and trash-talk.
+
+## Controls
+
+### Quick Reference
+
 | Key | Action |
 |-----|--------|
-| F12 | Toggle game panel (configurable) |
-| N | Return to game menu |
-| M | Minimize (hide game panel) |
+| **F12** | Toggle game panel on/off |
+| **Arrow keys / WASD** | Move, navigate menus |
+| **Space / Enter** | Action (drop, reveal, flap, select) |
+| **Esc** | Back (pause > menu > minimize) |
+| **P** / **Ctrl+Space** | Pause game & switch focus to terminal |
+| **R** | Restart current game |
+| **M** | Open game menu |
+| **X** / **Ctrl+C** | Hide game panel |
+| **F** | Flag cell (Minesweeper) |
+| **Modifier+Left/Right** | Resize game panel |
 
-### Gameplay
-| Key | Action |
-|-----|--------|
-| Arrow keys / WASD | Move / navigate |
-| Space / Enter | Action (flap, reveal, place) |
-| F | Flag (Minesweeper) |
-| R | Restart current game |
-| Ctrl+Space | Pause / resume |
-| Modifier+Left/Right | Resize game panel |
+### Pause & Focus
+
+Press **P** or **Ctrl+Space** to pause. The game panel stays visible, but your keyboard input goes to the terminal — interact with your CLI, check output, then press the toggle key to resume playing. Best of both worlds.
+
+### Escape Behavior
+
+**Esc** is context-aware — it always does the most natural "back" action:
+
+- **Playing** > Esc > soft pause (any game key resumes)
+- **Soft-paused** > Esc > game menu
+- **Menu** > Esc > hide game panel
+- **Game over** > Esc > game menu
+
+## High Scores
+
+Your top 10 scores per game are saved automatically to `~/.splitgame/scores.json`. View them from the **High Scores** tab in the game menu. Chase your personal bests between coding sessions.
 
 ## Configuration
 
-```bash
-splitgame config list                    # Show all settings
-splitgame config set toggleKey ctrl+]    # Change toggle key
-splitgame config set modifierKey alt     # Change modifier key (ctrl or alt)
-splitgame config set gameWidthPercent 60 # Change game panel width (20-80)
-splitgame config reset                   # Reset all to defaults
-```
+Customize the experience from the CLI or the in-app Config tab (press **M**, then **Tab** to Config):
 
-### Settings
+```bash
+splitgame config list                    # Show current settings
+splitgame config set toggleKey ctrl+]    # Change toggle key
+splitgame config set modifierKey alt     # Change modifier key
+splitgame config set gameWidthPercent 60 # Game panel takes 60% of the screen
+splitgame config reset                   # Reset to defaults
+```
 
 | Setting | Default | Options |
 |---------|---------|---------|
@@ -79,41 +103,40 @@ splitgame config reset                   # Reset all to defaults
 | `modifierKey` | `ctrl` | `ctrl`, `alt` |
 | `gameWidthPercent` | `50` | `20` - `80` |
 
-Settings are stored in `~/.splitgame/config.json`.
+## Quick Start (without install)
+
+Don't want the auto-launch? Wrap any command manually:
+
+```bash
+splitgame claude              # Play while Claude Code works
+splitgame npm run dev         # Play while dev server runs
+splitgame python train.py     # Play while your model trains
+splitgame cargo build         # Play while Rust compiles
+```
 
 ## CLI Reference
 
-```bash
-splitgame [options] [--] <command> [args...]
-splitgame install          # Auto-launch in new terminals
-splitgame uninstall        # Remove auto-launch
-splitgame config <sub>     # Manage settings
-splitgame --list-games     # List available games
-splitgame --version        # Show version
-splitgame --help           # Show help
 ```
-
-| Option | Description |
-|--------|-------------|
-| `-g, --game <id>` | Start with a specific game |
-| `-h, --help` | Show help message |
-| `-V, --version` | Show version number |
-| `--list-games` | List available games |
+splitgame [options] [--] <command> [args...]
+splitgame install              Auto-launch in new terminals
+splitgame uninstall            Remove auto-launch
+splitgame config <subcommand>  Manage settings
+splitgame mcp-setup            Configure Claude Code integration
+splitgame --list-games         List available games
+splitgame --version            Show version
+splitgame --help               Show help
+```
 
 ## Platform Support
 
-### Windows
-`splitgame install` patches Windows Terminal's `settings.json` to wrap each profile's command with splitgame. Supports standard profiles, Visual Studio developer prompts, and specialized toolchains. Skips Azure Cloud Shell, WSL, and VS Debug Console.
+| Platform | Install method |
+|----------|----------------|
+| **Windows** | Patches Windows Terminal profiles to wrap each shell with splitgame. Supports standard profiles, VS dev prompts, and specialized toolchains. |
+| **Linux / macOS** | Appends a guarded auto-launch snippet to `.bashrc`, `.zshrc`, or `config.fish`. |
 
-### Linux / macOS
-`splitgame install` appends a guarded auto-launch snippet to your shell profile (`.bashrc`, `.zshrc`, or `config.fish`). Prevents recursion via `SPLITGAME_ACTIVE` env var and skips non-TTY sessions.
+Both platforms back up your original config to `~/.splitgame/backups/` before changing anything. `splitgame uninstall` restores everything. If you uninstall the npm package, it auto-restores too.
 
-Both platforms create backups in `~/.splitgame/backups/` before modifying anything. `splitgame uninstall` restores the original state.
-
-## Requirements
-
-- A real TTY terminal (Windows Terminal, iTerm2, native console)
-- Will not run in piped/redirected contexts or non-TTY terminals (e.g., VS Code integrated terminal)
+**Requires a real TTY** — Windows Terminal, iTerm2, or native console. Won't run in VS Code's integrated terminal or piped contexts.
 
 ## Contributing
 

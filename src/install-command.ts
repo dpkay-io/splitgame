@@ -51,7 +51,7 @@ function handleWindowsInstall(): void {
     process.stdout.write('How to play:\n');
     process.stdout.write('  F12 to toggle the game panel (or your configured toggle key).\n');
     process.stdout.write('  The game panel starts hidden — press the toggle key any time to show it.\n');
-    process.stdout.write('  Press N to browse games, M to minimize, R to restart.\n\n');
+    process.stdout.write('  Press M to browse games, X to close, R to restart.\n\n');
     process.stdout.write('To undo: splitgame uninstall\n\n');
   } catch (e: any) {
     process.stderr.write(`splitgame install: ${e.message}\n`);
@@ -104,7 +104,7 @@ function handleShellInstall(): void {
     process.stdout.write('How to play:\n');
     process.stdout.write('  F12 to toggle the game panel (or your configured toggle key).\n');
     process.stdout.write('  The game panel starts hidden — press the toggle key any time to show it.\n');
-    process.stdout.write('  Press N to browse games, M to minimize, R to restart.\n\n');
+    process.stdout.write('  Press M to browse games, X to close, R to restart.\n\n');
     process.stdout.write('To undo: splitgame uninstall\n\n');
   } catch (e: any) {
     process.stderr.write(`splitgame install: ${e.message}\n`);

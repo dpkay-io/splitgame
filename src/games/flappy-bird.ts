@@ -1,10 +1,10 @@
 import { IGame, GameRenderState, GameCell, ANSIColor } from '../types';
 
 const DEFAULT: ANSIColor = { mode: 'default', value: 0 };
-const YELLOW: ANSIColor = { mode: 'palette', value: 11 };
+const YELLOW: ANSIColor = { mode: 'palette', value: 220 };
 const GREEN: ANSIColor = { mode: 'palette', value: 2 };
 const BROWN: ANSIColor = { mode: 'palette', value: 130 };
-const SKY_BG: ANSIColor = { mode: 'palette', value: 153 };
+const SKY_BG: ANSIColor = { mode: 'palette', value: 25 };
 const WHITE: ANSIColor = { mode: 'palette', value: 15 };
 
 interface Pipe {

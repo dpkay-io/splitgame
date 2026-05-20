@@ -1,6 +1,6 @@
 {
   "name": "splitgame",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Play games in a split terminal overlay alongside your CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
@@ -10,7 +10,8 @@
   },
   "files": [
     "bin/",
-    "dist/"
+    "dist/",
+    "splitgame.png"
   ],
   "scripts": {
     "build": "tsc",

@@ -10,9 +10,11 @@ splitgame — a Node.js CLI that wraps any command in a split-terminal with a ga
 
 **Available games:** Snake, 2048, Tetris, Tic-Tac-Toe (vs AI or vs Claude), Breakout, Minesweeper, Flappy Bird.
 
-**Key bindings (during gameplay):** N=Menu, M=Hide, R=Restart, P or Ctrl+Space=Pause, Ctrl+C=Hide, Modifier+←→=Resize panel. Toggle key, modifier key, and game panel width are all configurable.
+**Key bindings (during gameplay):** Esc=progressive back (pause→menu→hide), M=Menu, X=Hide, R=Restart, P or Ctrl+Space=Pause (focus to CLI), Ctrl+C=Hide, Modifier+←→=Resize panel. Toggle key, modifier key, and game panel width are all configurable.
 
-**Paused-state focus:** When the game is paused, input routes to the child terminal (not the game). The game panel remains visible in split view but the user can interact with their CLI. Only the toggle key resumes the game and switches focus back.
+**Escape key UX:** Esc acts as a context-aware "back" action. Playing → Esc → soft pause (focus stays on game, any gameplay key resumes). Esc-paused → Esc → menu. Menu → Esc → minimize. Game over → Esc → menu. This is separate from P-pause, which transitions to GAME_PAUSED and routes focus to the child terminal for CLI interaction.
+
+**Paused-state focus (P-pause):** When the game is paused via P/Ctrl+Space, input routes to the child terminal (not the game). The game panel remains visible in split view but the user can interact with their CLI. Only the toggle key resumes the game and switches focus back.
 
 ## Commands
 
@@ -43,6 +45,8 @@ The CLI requires a real TTY — it will refuse to run in piped/redirected contex
 
 **Linux/macOS:** `ShellProfileInstaller` (`src/shell-installer.ts`) appends a guarded auto-launch snippet to the user's shell profile (`.bashrc`, `.zshrc`, or `config.fish`). The snippet checks `SPLITGAME_ACTIVE` env var (set by splitgame's PTY spawn) to prevent recursion, `[ -t 1 ]` / `status is-interactive` to skip non-TTY sessions, and `command -v splitgame` / `command -q splitgame` to gracefully skip if splitgame is not installed.
 
+**Postinstall automation:** The npm `postinstall` hook (`bin/postinstall.js`) auto-configures both the terminal integration and Claude Code MCP server. The MCP setup logic lives in `src/mcp-setup.ts` (shared with the `splitgame mcp-setup` CLI command). Both steps silently ignore failures — the user can always run `splitgame install` or `splitgame mcp-setup` manually.
+
 **Uninstall safety:** An npm `preuninstall` hook (`bin/preuninstall.js`) automatically restores terminal/shell profiles when the package is removed via `npm uninstall`. Both platforms' wrappers also fail-safe — if splitgame is missing, the original shell launches normally.
 
 Both platforms: backs up the original to `~/.splitgame/backups/`, writes an install manifest to `~/.splitgame/install-manifest.json` for idempotency and uninstall. `splitgame uninstall` restores the original state. Backups remain for manual recovery.
@@ -51,7 +55,11 @@ Both platforms: backs up the original to `~/.splitgame/backups/`, writes an inst
 
 ## Architecture
 
-**Data flow:** stdin → `InputRouter` → (child PTY or game) | PTY output → `TerminalEmulator` (xterm headless) → `Renderer` → stdout
+**Data flow:** Two modes depending on game visibility. When minimized (passthrough mode): PTY output → stdout directly (preserves terminal scrollback) + fed to `TerminalEmulator` for state sync. When game is visible: PTY output → `TerminalEmulator` (xterm headless) → `Renderer` → stdout (alternate screen buffer). stdin → `InputRouter` → (child PTY or game) in both modes.
+
+**Screen buffer strategy:** splitgame only uses the alternate screen buffer when the game panel is visible (GAME_ACTIVE or GAME_PAUSED). When the game is minimized (default state), it stays on the main screen buffer with raw PTY passthrough so terminal scrollback works normally. Toggling the game panel switches between main ↔ alternate screen (`?1049h`/`?1049l`).
+
+**Scroll handling:** SGR mouse mode (`?1000h`/`?1006h`) is enabled to intercept trackpad/mouse wheel events. Without this, ConPTY converts scroll into arrow key sequences that reach the child process. Wheel events are parsed in `InputRouter` and routed to `onScroll` in the orchestrator, which scrolls the xterm-headless viewport via `scrollLines()`/`scrollToBottom()`. When scrolled back, passthrough pauses and the renderer takes over to show scrollback content. Any keyboard input exits scrollback mode and resumes passthrough.
 
 **Orchestrator** (`src/orchestrator.ts`) is the central coordinator. It owns all components and wires them together. It manages the render loop (33ms interval), signal handling, resize events, screen lifecycle, game selection, and high score submission. Accepts `OrchestratorOptions` with optional `gameId` to skip the menu.
 
@@ -61,7 +69,7 @@ Both platforms: backs up the original to `~/.splitgame/backups/`, writes an inst
 
 **Install system:** `install-command.ts` dispatches by platform. On Windows, `installer.ts` (`TerminalInstaller`) patches Windows Terminal's `settings.json` profile commandlines. On Linux/macOS, `shell-installer.ts` (`ShellProfileInstaller`) appends a guarded auto-launch snippet to the user's shell profile. Both write a manifest to `~/.splitgame/install-manifest.json` and create backups. `jsonc.ts` parses JSONC (Windows Terminal settings contain comments).
 
-**InputRouter** (`src/input-router.ts`) handles raw stdin. Toggle key is configurable — supports F12 (default), double-tap Escape (300ms window), or Ctrl+]. When focus is CHILD, raw bytes go to the PTY. When focus is GAME, bytes are parsed into named keys (arrows, WASD, enter, flag, next-game, resize-left, resize-right, tab, etc.). Modifier+arrow keys emit resize commands.
+**InputRouter** (`src/input-router.ts`) handles raw stdin. Toggle key is configurable — supports F12 (default), double-tap Escape (300ms window), or Ctrl+]. When focus is CHILD, raw bytes go to the PTY. When focus is GAME, bytes are parsed into named keys (arrows, WASD, enter, escape, flag, next-game, resize-left, resize-right, tab, etc.). Standalone Esc (single 0x1b byte) is parsed as `'escape'`. Modifier+arrow keys emit resize commands.
 
 **Renderer** (`src/renderer.ts`) has two modes: `renderFullscreen()` for minimized state (passes through terminal emulator buffer) and `renderSplit()` for game-visible states (left panel = child, vertical border, right panel = game grid, bottom status bar). Game panel width is configurable (20–80% via `gameWidthPercent`). Status bar shows context-aware action hints (keys vary by playing/paused/gameover state). Uses dirty-checking to skip unchanged rows.
 
@@ -71,7 +79,7 @@ Both platforms: backs up the original to `~/.splitgame/backups/`, writes an inst
 
 **Game Registry** (`src/game-registry.ts`) maps game IDs to constructors. Used by the CLI (`--game` flag), game menu, and orchestrator.
 
-**Game Menu** (`src/games/game-menu.ts`) implements `IGame` as a tabbed in-app menu with three sections: Games (select a game), High Scores (all-games summary), and Config (interactive settings editor). Tab/Shift+Tab switches sections. In Config tab, Up/Down navigates settings, Left/Right cycles values, R resets. Press N during gameplay to return to the menu.
+**Game Menu** (`src/games/game-menu.ts`) implements `IGame` as a tabbed in-app menu with three sections: Games (select a game), High Scores (all-games summary), and Config (interactive settings editor). Tab/Shift+Tab switches sections. In Config tab, Up/Down navigates settings, Left/Right cycles values, R resets. Press M during gameplay to return to the menu.
 
 **High Scores** (`src/high-scores.ts`) persists per-game high scores to `~/.splitgame/scores.json`. Top 10 scores per game. High score is shown in the status bar during gameplay.
 

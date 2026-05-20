@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Runs automatically on `npm install -g splitgame` to configure the user's terminal.
-// Silently ignored on failure — the user can always run `splitgame install` manually.
+// Runs automatically on `npm install -g splitgame` to configure the user's terminal
+// and Claude Code MCP integration. Silently ignored on failure — the user can always
+// run `splitgame install` or `splitgame mcp-setup` manually.
 try {
   if (process.platform === 'win32') {
     const { TerminalInstaller } = require('../dist/installer');
@@ -21,4 +22,16 @@ try {
   }
 } catch (e) {
   // Silently ignore — never block npm install
+}
+
+try {
+  const { setupMcp } = require('../dist/mcp-setup');
+  const result = setupMcp(require('path').resolve(__dirname, '..'));
+  const configured = result.configs.filter(c => c.status === 'configured');
+  if (configured.length > 0) {
+    process.stdout.write('splitgame: configured MCP server for ' + configured.map(c => c.name).join(', ') + '.\n');
+    process.stdout.write('Restart Claude Code to enable game tools.\n\n');
+  }
+} catch (e) {
+  // Silently ignore — user can run `splitgame mcp-setup` manually
 }

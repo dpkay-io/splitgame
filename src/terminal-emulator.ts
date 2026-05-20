@@ -77,6 +77,30 @@ export class TerminalEmulator {
     return cells;
   }
 
+  scrollUp(lines: number = 3): void {
+    if (this.disposed) return;
+    this.terminal.scrollLines(-lines);
+    this._dirty = true;
+  }
+
+  scrollDown(lines: number = 3): void {
+    if (this.disposed) return;
+    this.terminal.scrollLines(lines);
+    this._dirty = true;
+  }
+
+  scrollToBottom(): void {
+    if (this.disposed) return;
+    this.terminal.scrollToBottom();
+    this._dirty = true;
+  }
+
+  get isScrolledBack(): boolean {
+    if (this.disposed) return false;
+    const buf = this.terminal.buffer.active;
+    return buf.viewportY < buf.baseY;
+  }
+
   get cols(): number { return this.terminal.cols; }
   get rows(): number { return this.terminal.rows; }
 

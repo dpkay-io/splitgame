@@ -39,6 +39,9 @@ export class Orchestrator {
   private turnWaiters: Array<(state: CompactGameState | null) => void> = [];
   private claudeOpponent = false;
   private cachedGameInfo: Array<{ id: string; name: string; supportsExternalMoves: boolean }> | null = null;
+  private passthrough = false;
+  private scrolledBack = false;
+  private escapePaused = false;
   private signalHandlersRegistered = false;
   private boundOnSignal: (() => void) | null = null;
   private boundOnExit: (() => void) | null = null;
@@ -64,9 +67,10 @@ export class Orchestrator {
 
     this.inputRouter = new InputRouter(
       () => this.onToggle(),
-      (data) => this.ptyManager.write(data.toString()),
+      (data) => this.onChildInputData(data),
       (key) => this.onGameInput(key),
       () => this.stateMachine.snapshot.inputFocus,
+      (delta) => this.onScroll(delta),
       this.configManager.get('toggleKey'),
       this.configManager.get('modifierKey'),
     );
@@ -95,8 +99,13 @@ export class Orchestrator {
   }
 
   start(): void {
-    process.stdout.write(ansi.alternateScreen());
-    process.stdout.write(ansi.clearScreen());
+    if (this.stateMachine.state === AppState.GAME_ACTIVE) {
+      process.stdout.write(ansi.alternateScreen());
+      process.stdout.write(ansi.clearScreen());
+    } else {
+      this.passthrough = true;
+    }
+    process.stdout.write(ansi.enableMouseMode());
 
     if (!this.signalHandlersRegistered) {
       this.signalHandlersRegistered = true;
@@ -133,11 +142,45 @@ export class Orchestrator {
 
   private onPtyData(data: string): void {
     this.emulator.write(data);
+    if (this.passthrough && !this.scrolledBack) {
+      process.stdout.write(data);
+    }
+  }
+
+  private onChildInputData(data: Buffer): void {
+    if (this.scrolledBack) {
+      this.exitScrollback();
+    }
+    this.ptyManager.write(data.toString());
   }
 
   private onPtyExit(code: number): void {
     this.stateMachine.transition(StateTransition.CHILD_EXIT);
     this.shutdown(code);
+  }
+
+  private onScroll(delta: number): void {
+    if (this.stateMachine.state !== AppState.GAME_MINIMIZED) return;
+
+    if (delta < 0) {
+      this.emulator.scrollUp(Math.abs(delta));
+      this.scrolledBack = true;
+      this.emulator.markDirty();
+    } else {
+      this.emulator.scrollDown(delta);
+      if (!this.emulator.isScrolledBack) {
+        this.exitScrollback();
+      } else {
+        this.emulator.markDirty();
+      }
+    }
+  }
+
+  private exitScrollback(): void {
+    this.scrolledBack = false;
+    this.emulator.scrollToBottom();
+    this.emulator.markDirty();
+    this.renderer.renderFullscreen();
   }
 
   private onToggle(): void {
@@ -146,13 +189,23 @@ export class Orchestrator {
   }
 
   private onGameInput(key: string): void {
+    if (key === 'escape') {
+      this.handleEscape();
+      return;
+    }
     if (key === 'minimize') {
+      this.escapePaused = false;
       this.stateMachine.transition(StateTransition.MINIMIZE);
       this.applyState();
       return;
     }
     if (key === 'pause') {
       if (this.inMenu) return;
+      if (this.escapePaused) {
+        this.escapePaused = false;
+        this.gameEngine.resume();
+        return;
+      }
       if (this.stateMachine.state === AppState.GAME_ACTIVE) {
         this.stateMachine.transition(StateTransition.MANUAL_PAUSE);
       } else if (this.stateMachine.state === AppState.GAME_PAUSED) {
@@ -162,6 +215,7 @@ export class Orchestrator {
       return;
     }
     if (key === 'ctrl-c') {
+      this.escapePaused = false;
       this.stateMachine.transition(StateTransition.MINIMIZE);
       this.applyState();
       return;
@@ -179,6 +233,11 @@ export class Orchestrator {
       return;
     }
 
+    if (this.escapePaused) {
+      this.escapePaused = false;
+      this.gameEngine.resume();
+    }
+
     if (this.inMenu) {
       this.gameMenu.handleInput(key);
       const selected = this.gameMenu.selectedGame;
@@ -188,9 +247,28 @@ export class Orchestrator {
       return;
     }
 
+    this.checkAndSubmitScore();
     this.gameEngine.handleInput(key);
     this.checkAndSubmitScore();
     this.notifyTurnWaiters();
+  }
+
+  private handleEscape(): void {
+    if (this.inMenu) {
+      this.stateMachine.transition(StateTransition.MINIMIZE);
+      this.applyState();
+      return;
+    }
+    if (this.gameEngine.currentGame.isGameOver()) {
+      this.switchToMenu();
+      return;
+    }
+    if (this.escapePaused) {
+      this.switchToMenu();
+      return;
+    }
+    this.gameEngine.pause();
+    this.escapePaused = true;
   }
 
   private handleResize(delta: number): void {
@@ -222,6 +300,7 @@ export class Orchestrator {
 
   private restartGame(): void {
     if (!this.currentGameId) return;
+    this.escapePaused = false;
     this.checkAndSubmitScore();
     this.gameEngine.stop();
     const game = createGame(this.currentGameId);
@@ -274,6 +353,7 @@ export class Orchestrator {
   }
 
   private switchToMenu(): void {
+    this.escapePaused = false;
     this.checkAndSubmitScore();
     this.flushTurnWaiters();
     this.gameEngine.stop();
@@ -334,6 +414,15 @@ export class Orchestrator {
 
     switch (state) {
       case AppState.GAME_ACTIVE:
+        this.escapePaused = false;
+        if (this.scrolledBack) {
+          this.scrolledBack = false;
+          this.emulator.scrollToBottom();
+        }
+        if (this.passthrough) {
+          this.passthrough = false;
+          process.stdout.write(ansi.alternateScreen());
+        }
         this.emulator.resize(geo.leftWidth, geo.height);
         this.ptyManager.resize(geo.leftWidth, geo.height);
         this.gameEngine.resize(geo.rightWidth, geo.height - 1);
@@ -354,7 +443,10 @@ export class Orchestrator {
         this.gameEngine.stop();
         this.emulator.resize(cols, rows);
         this.ptyManager.resize(cols, rows);
-        process.stdout.write(ansi.clearScreen());
+        if (!this.passthrough) {
+          process.stdout.write(ansi.mainScreen());
+          this.passthrough = true;
+        }
         this.renderer.invalidate();
         this.emulator.markDirty();
         break;
@@ -376,10 +468,12 @@ export class Orchestrator {
     const state = this.stateMachine.state;
 
     if (state === AppState.GAME_MINIMIZED) {
+      if (this.passthrough && !this.scrolledBack) return;
       if (this.emulator.consumeDirty()) {
         this.renderer.renderFullscreen();
       }
     } else if (state === AppState.GAME_ACTIVE || state === AppState.GAME_PAUSED) {
+      this.checkAndSubmitScore();
       const gameState = this.gameEngine.getState();
       const statusBar = this.buildStatusBar(gameState);
       this.renderer.renderSplit(gameState, statusBar);
@@ -389,7 +483,7 @@ export class Orchestrator {
   private buildStatusBar(gameState: GameRenderState): string {
     const toggle = this.toggleKeyLabel();
     if (this.inMenu) {
-      return ` Tab: switch sections | ${toggle}:Hide`;
+      return ` Tab:Switch  Esc:Hide | ${toggle}`;
     }
 
     const mod = this.configManager.get('modifierKey') === 'ctrl' ? '^' : 'M-';
@@ -397,12 +491,15 @@ export class Orchestrator {
     const hiStr = hi > 0 ? ` Hi:${hi}` : '';
 
     if (gameState.status === 'gameover') {
-      return ` N:Menu R:New ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
+      return ` Esc/M:Menu R:New ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
     }
     if (gameState.status === 'paused') {
-      return ` ${toggle}: Resume game | ⏸ ${gameState.score}${hiStr}`;
+      if (this.escapePaused) {
+        return ` Esc:Menu P:Resume ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
+      }
+      return ` ${toggle}: Resume | ⏸  ${gameState.score}${hiStr}`;
     }
-    return ` N:Menu ${toggle}:Hide ${mod}←→:Size P:Pause | ${gameState.score}${hiStr}`;
+    return ` Esc:Pause M:Menu ${toggle}:Hide ${mod}←→:Size | ${gameState.score}${hiStr}`;
   }
 
   private toggleKeyLabel(): string {
@@ -603,8 +700,11 @@ export class Orchestrator {
     if (process.stdin.isTTY) {
       try { process.stdin.setRawMode(false); } catch {}
     }
+    process.stdout.write(ansi.disableMouseMode());
     process.stdout.write(ansi.resetAttributes());
     process.stdout.write(ansi.showCursor());
-    process.stdout.write(ansi.mainScreen());
+    if (!this.passthrough) {
+      process.stdout.write(ansi.mainScreen());
+    }
   }
 }
