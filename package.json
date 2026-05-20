@@ -1,0 +1,58 @@
+{
+  "name": "gamecli",
+  "version": "0.1.0",
+  "description": "Play games in a split terminal overlay alongside your CLI tools",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "bin": {
+    "gamecli": "./bin/gamecli.js"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "node bin/gamecli.js",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "dpkay <hello@dpkay.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dpkay-io/gamecli.git"
+  },
+  "homepage": "https://github.com/dpkay-io/gamecli",
+  "bugs": {
+    "url": "https://github.com/dpkay-io/gamecli/issues"
+  },
+  "keywords": [
+    "cli",
+    "terminal",
+    "game",
+    "snake",
+    "tetris",
+    "2048",
+    "minesweeper",
+    "tic-tac-toe",
+    "breakout",
+    "flappy-bird",
+    "overlay",
+    "split-screen",
+    "developer-tools",
+    "productivity"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@xterm/headless": "^6.0.0",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}
