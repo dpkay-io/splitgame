@@ -6,7 +6,7 @@ import { TerminalInstaller } from '../src/installer';
 import { parseJsonc } from '../src/jsonc';
 
 function makeTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'gamecli-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'splitgame-test-'));
 }
 
 function writeSettings(dir: string, settings: object): string {
@@ -68,11 +68,11 @@ describe('parseJsonc', () => {
 
 describe('TerminalInstaller', () => {
   let tempDir: string;
-  let gamecliDir: string;
+  let splitgameDir: string;
 
   beforeEach(() => {
     tempDir = makeTempDir();
-    gamecliDir = path.join(tempDir, '.gamecli');
+    splitgameDir = path.join(tempDir, '.splitgame');
   });
 
   afterEach(() => {
@@ -81,7 +81,7 @@ describe('TerminalInstaller', () => {
 
   function createInstaller(settingsPath: string) {
     return new TerminalInstaller({
-      gamecliDir,
+      splitgameDir,
       settingsSearchPaths: [settingsPath],
     });
   }
@@ -95,7 +95,7 @@ describe('TerminalInstaller', () => {
 
     it('returns null when no settings file exists', () => {
       const installer = new TerminalInstaller({
-        gamecliDir,
+        splitgameDir,
         settingsSearchPaths: [path.join(tempDir, 'nonexistent.json')],
       });
       expect(installer.findSettingsFile()).toBeNull();
@@ -107,11 +107,11 @@ describe('TerminalInstaller', () => {
       const settingsPath = writeSettings(tempDir, BASE_SETTINGS);
       const installer = createInstaller(settingsPath);
 
-      // Mock PATH to include gamecli
+      // Mock PATH to include splitgame
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -120,16 +120,16 @@ describe('TerminalInstaller', () => {
         expect(result.alreadyInstalled).toBe(false);
         expect(result.patched).toHaveLength(3);
         expect(result.patched[0].name).toBe('Windows PowerShell');
-        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c gamecli powershell.exe');
+        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c splitgame powershell.exe');
         expect(result.patched[0].originalCommandline).toBeNull();
         expect(result.patched[1].name).toBe('Command Prompt');
-        expect(result.patched[1].installedCommandline).toBe('cmd.exe /c gamecli cmd.exe');
+        expect(result.patched[1].installedCommandline).toBe('cmd.exe /c splitgame cmd.exe');
         expect(result.patched[2].name).toBe('Developer Command Prompt for VS 2022');
-        expect(result.patched[2].installedCommandline).toBe('cmd.exe /c gamecli -- cmd.exe /k "C:\\VS\\DevCmd.bat"');
+        expect(result.patched[2].installedCommandline).toBe('cmd.exe /c splitgame -- cmd.exe /k "C:\\VS\\DevCmd.bat"');
 
         const updated = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         const ps = updated.profiles.list.find((p: any) => p.name === 'Windows PowerShell');
-        expect(ps.commandline).toBe('cmd.exe /c gamecli powershell.exe');
+        expect(ps.commandline).toBe('cmd.exe /c splitgame powershell.exe');
       } finally {
         process.env.PATH = origPath;
       }
@@ -142,7 +142,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -164,7 +164,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -183,7 +183,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -212,12 +212,12 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
         const result = installer.install();
-        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c gamecli -- C:\\my shell\\shell.exe -flag');
+        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c splitgame -- C:\\my shell\\shell.exe -flag');
       } finally {
         process.env.PATH = origPath;
       }
@@ -239,7 +239,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -254,7 +254,7 @@ describe('TerminalInstaller', () => {
       }
     });
 
-    it('throws when gamecli is not in PATH', () => {
+    it('throws when splitgame is not in PATH', () => {
       const settingsPath = writeSettings(tempDir, BASE_SETTINGS);
       const installer = createInstaller(settingsPath);
 
@@ -268,12 +268,12 @@ describe('TerminalInstaller', () => {
       }
     });
 
-    it('does not double-wrap profiles already containing gamecli', () => {
+    it('does not double-wrap profiles already containing splitgame', () => {
       const settings = {
         profiles: {
           defaults: {},
           list: [
-            { guid: '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}', hidden: false, name: 'Windows PowerShell', commandline: 'gamecli powershell.exe' },
+            { guid: '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}', hidden: false, name: 'Windows PowerShell', commandline: 'splitgame powershell.exe' },
           ],
         },
       };
@@ -283,7 +283,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -302,7 +302,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {
@@ -334,7 +334,7 @@ describe('TerminalInstaller', () => {
       const origPath = process.env.PATH;
       const binDir = path.join(tempDir, 'bin');
       fs.mkdirSync(binDir);
-      fs.writeFileSync(path.join(binDir, 'gamecli.cmd'), '', { mode: 0o755 });
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
       process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
 
       try {

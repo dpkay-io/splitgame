@@ -23,8 +23,8 @@ export interface ShellUninstallResult {
   notInstalled: boolean;
 }
 
-const MARKER_START = '# >>> gamecli auto-launch >>>';
-const MARKER_END = '# <<< gamecli auto-launch <<<';
+const MARKER_START = '# >>> splitgame auto-launch >>>';
+const MARKER_END = '# <<< splitgame auto-launch <<<';
 
 const SHELL_PROFILES: Record<string, string[]> = {
   bash: ['.bashrc'],
@@ -36,36 +36,36 @@ function buildSnippet(shell: string): string {
   if (shell === 'fish') {
     return [
       MARKER_START,
-      'if not set -q GAMECLI_ACTIVE; and status is-interactive; and isatty stdout',
-      '  set -gx GAMECLI_ACTIVE 1',
-      '  exec gamecli $SHELL',
+      'if not set -q SPLITGAME_ACTIVE; and status is-interactive; and isatty stdout',
+      '  set -gx SPLITGAME_ACTIVE 1',
+      '  exec splitgame $SHELL',
       'end',
       MARKER_END,
     ].join('\n');
   }
   return [
     MARKER_START,
-    'if [ -z "$GAMECLI_ACTIVE" ] && [ -t 1 ]; then',
-    '  export GAMECLI_ACTIVE=1',
-    '  exec gamecli "$SHELL"',
+    'if [ -z "$SPLITGAME_ACTIVE" ] && [ -t 1 ]; then',
+    '  export SPLITGAME_ACTIVE=1',
+    '  exec splitgame "$SHELL"',
     'fi',
     MARKER_END,
   ].join('\n');
 }
 
 export class ShellProfileInstaller {
-  private gamecliDir: string;
+  private splitgameDir: string;
   private manifestPath: string;
   private homeDir: string;
 
-  constructor(options?: { gamecliDir?: string; homeDir?: string }) {
+  constructor(options?: { splitgameDir?: string; homeDir?: string }) {
     this.homeDir = options?.homeDir ?? os.homedir();
-    this.gamecliDir = options?.gamecliDir ?? path.join(this.homeDir, '.gamecli');
-    this.manifestPath = path.join(this.gamecliDir, 'install-manifest.json');
+    this.splitgameDir = options?.splitgameDir ?? path.join(this.homeDir, '.splitgame');
+    this.manifestPath = path.join(this.splitgameDir, 'install-manifest.json');
   }
 
   install(): ShellInstallResult {
-    this.ensureGamecliInPath();
+    this.ensureSplitgameInPath();
 
     const existing = this.getManifest();
     if (existing) {
@@ -86,7 +86,7 @@ export class ShellProfileInstaller {
       );
     }
 
-    const backupDir = path.join(this.gamecliDir, 'backups');
+    const backupDir = path.join(this.splitgameDir, 'backups');
     this.ensureDir(backupDir);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(backupDir, `${path.basename(profilePath)}.${timestamp}.bak`);
@@ -125,7 +125,7 @@ export class ShellProfileInstaller {
       profilePath,
       backupPath,
     };
-    this.ensureDir(this.gamecliDir);
+    this.ensureDir(this.splitgameDir);
     fs.writeFileSync(this.manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
     return { shell, profilePath, backupPath, alreadyInstalled: false };
@@ -217,11 +217,11 @@ export class ShellProfileInstaller {
     return path.join(this.homeDir, candidates[0]);
   }
 
-  private ensureGamecliInPath(): void {
+  private ensureSplitgameInPath(): void {
     const pathDirs = (process.env.PATH || '').split(path.delimiter);
     for (const dir of pathDirs) {
       try {
-        fs.accessSync(path.join(dir, 'gamecli'), fs.constants.X_OK);
+        fs.accessSync(path.join(dir, 'splitgame'), fs.constants.X_OK);
         return;
       } catch {
         continue;
@@ -229,10 +229,10 @@ export class ShellProfileInstaller {
     }
 
     throw new Error(
-      'gamecli is not globally installed (not found in PATH).\n\n' +
+      'splitgame is not globally installed (not found in PATH).\n\n' +
       'Run one of:\n' +
-      '  npm install -g gamecli\n' +
-      '  npm link           (from the gamecli project directory)'
+      '  npm install -g splitgame\n' +
+      '  npm link           (from the splitgame project directory)'
     );
   }
 

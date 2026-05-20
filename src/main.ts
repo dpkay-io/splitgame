@@ -11,7 +11,7 @@ function handleConfigCommand(args: string[]): void {
     case 'list': {
       const all = config.getAll();
       const defaults = ConfigManager.defaults();
-      process.stdout.write('\n  gamecli configuration\n\n');
+      process.stdout.write('\n  splitgame configuration\n\n');
       for (const key of CONFIG_KEYS) {
         const val = String(all[key]);
         const def = String(defaults[key]);
@@ -27,7 +27,7 @@ function handleConfigCommand(args: string[]): void {
     case 'get': {
       const key = args[1] as ConfigKey;
       if (!key || !CONFIG_KEYS.includes(key)) {
-        process.stderr.write(`gamecli config get: unknown key "${args[1] || ''}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
+        process.stderr.write(`splitgame config get: unknown key "${args[1] || ''}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
         process.exit(1);
       }
       process.stdout.write(`${config.get(key)}\n`);
@@ -37,11 +37,11 @@ function handleConfigCommand(args: string[]): void {
       const key = args[1] as ConfigKey;
       const value = args[2];
       if (!key || !CONFIG_KEYS.includes(key)) {
-        process.stderr.write(`gamecli config set: unknown key "${args[1] || ''}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
+        process.stderr.write(`splitgame config set: unknown key "${args[1] || ''}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
         process.exit(1);
       }
       if (value === undefined) {
-        process.stderr.write(`gamecli config set: missing value for "${key}"\n`);
+        process.stderr.write(`splitgame config set: missing value for "${key}"\n`);
         process.exit(1);
       }
       try {
@@ -49,7 +49,7 @@ function handleConfigCommand(args: string[]): void {
         config.set(key, parsed as any);
         process.stdout.write(`${key} = ${config.get(key)}\n`);
       } catch (e: any) {
-        process.stderr.write(`gamecli config set: ${e.message}\n`);
+        process.stderr.write(`splitgame config set: ${e.message}\n`);
         process.exit(1);
       }
       break;
@@ -58,7 +58,7 @@ function handleConfigCommand(args: string[]): void {
       const key = args[1] as ConfigKey | undefined;
       if (key) {
         if (!CONFIG_KEYS.includes(key)) {
-          process.stderr.write(`gamecli config reset: unknown key "${key}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
+          process.stderr.write(`splitgame config reset: unknown key "${key}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
           process.exit(1);
         }
         config.resetKey(key);
@@ -70,8 +70,8 @@ function handleConfigCommand(args: string[]): void {
       break;
     }
     default:
-      process.stderr.write(`gamecli config: unknown subcommand "${sub}"\n`);
-      process.stderr.write('Usage: gamecli config [list|get|set|reset]\n');
+      process.stderr.write(`splitgame config: unknown subcommand "${sub}"\n`);
+      process.stderr.write('Usage: splitgame config [list|get|set|reset]\n');
       process.exit(1);
   }
 }
@@ -82,20 +82,20 @@ function printVersion(): void {
 }
 
 function printHelp(): void {
-  process.stdout.write('\n  gamecli — wrap any command in a split-terminal with a game panel\n\n');
+  process.stdout.write('\n  splitgame — wrap any command in a split-terminal with a game panel\n\n');
   process.stdout.write('  Usage:\n');
-  process.stdout.write('    gamecli [-g <game>] [--] <command> [args...]   Run a command with game panel\n');
-  process.stdout.write('    gamecli install                                Auto-launch gamecli in new terminals\n');
-  process.stdout.write('    gamecli uninstall                              Remove auto-launch integration\n');
-  process.stdout.write('    gamecli config [list|get|set|reset]            Manage settings\n');
-  process.stdout.write('    gamecli --list-games                           Show available games\n\n');
+  process.stdout.write('    splitgame [-g <game>] [--] <command> [args...]   Run a command with game panel\n');
+  process.stdout.write('    splitgame install                                Auto-launch splitgame in new terminals\n');
+  process.stdout.write('    splitgame uninstall                              Remove auto-launch integration\n');
+  process.stdout.write('    splitgame config [list|get|set|reset]            Manage settings\n');
+  process.stdout.write('    splitgame --list-games                           Show available games\n\n');
   process.stdout.write('  Options:\n');
   process.stdout.write('    -g, --game <game>    Start with a specific game\n');
   process.stdout.write('    -h, --help           Show this help message\n');
   process.stdout.write('    -V, --version        Show version number\n\n');
   process.stdout.write('  Quick start:\n');
-  process.stdout.write('    gamecli install       One-time setup: every new terminal auto-launches\n');
-  process.stdout.write('                          inside gamecli.\n');
+  process.stdout.write('    splitgame install       One-time setup: every new terminal auto-launches\n');
+  process.stdout.write('                          inside splitgame.\n');
   process.stdout.write('    Double-tap Escape     Toggle the game panel during any session.\n\n');
 }
 
@@ -137,7 +137,7 @@ function main(): void {
       const found = findGame(candidate);
       if (!found) {
         const names = getGameList().map(g => g.id).join(', ');
-        process.stderr.write(`gamecli: unknown game "${candidate}". Available: ${names}\n`);
+        process.stderr.write(`splitgame: unknown game "${candidate}". Available: ${names}\n`);
         process.exit(1);
       }
       gameId = found.id;
@@ -170,7 +170,7 @@ function main(): void {
   }
 
   if (!process.stdout.isTTY || !process.stdin.isTTY) {
-    process.stderr.write('gamecli requires a TTY. Pipe or redirect is not supported.\n');
+    process.stderr.write('splitgame requires a TTY. Pipe or redirect is not supported.\n');
     process.exit(1);
   }
 

@@ -18,7 +18,7 @@ export class HighScoreManager {
   private data: ScoreData = {};
 
   constructor() {
-    const dir = path.join(os.homedir(), '.gamecli');
+    const dir = path.join(os.homedir(), '.splitgame');
     this.filePath = path.join(dir, 'scores.json');
     this.ensureDir(dir);
     this.load();

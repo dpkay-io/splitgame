@@ -1,31 +1,34 @@
-# gamecli
+# splitgame
 
 Play games in a split-terminal overlay alongside your CLI tools. The child process runs on the left; the game renders on the right. Toggle the game panel with a hotkey and get back to work instantly.
 
-## Install
+## Get Started
 
 ```bash
-npm install -g gamecli
+# 1. Install globally
+npm install -g splitgame
+
+# 2. One-time setup: auto-launch in every new terminal
+splitgame install
+
+# 3. Play! Double-tap Escape at any time to toggle the game panel
 ```
 
-Requires Node.js >= 18.
+That's it. Every new terminal session now has splitgame running in the background. The game panel starts hidden — **double-tap Escape** (or your configured toggle key) to show it whenever you want a break. Press it again to hide and get back to work.
 
-## Quick Start
+Requires Node.js >= 18. Use `splitgame uninstall` to remove.
+
+## Quick Start (without install)
 
 ```bash
 # Wrap any command with a game panel
-gamecli node server.js
-gamecli npm run dev
-gamecli python train.py
+splitgame node server.js
+splitgame npm run dev
+splitgame python train.py
 
 # Start with a specific game
-gamecli -g tetris npm run dev
-
-# One-time setup: auto-launch in every new terminal
-gamecli install
+splitgame -g tetris npm run dev
 ```
-
-After `gamecli install`, every new terminal session starts inside gamecli automatically. Double-tap Escape to toggle the game panel. Use `gamecli uninstall` to remove.
 
 ## Games
 
@@ -61,11 +64,11 @@ After `gamecli install`, every new terminal session starts inside gamecli automa
 ## Configuration
 
 ```bash
-gamecli config list                    # Show all settings
-gamecli config set toggleKey ctrl+g    # Change toggle key
-gamecli config set modifierKey alt     # Change modifier key (ctrl or alt)
-gamecli config set gameWidthPercent 60 # Change game panel width (40-80)
-gamecli config reset                   # Reset all to defaults
+splitgame config list                    # Show all settings
+splitgame config set toggleKey ctrl+g    # Change toggle key
+splitgame config set modifierKey alt     # Change modifier key (ctrl or alt)
+splitgame config set gameWidthPercent 60 # Change game panel width (40-80)
+splitgame config reset                   # Reset all to defaults
 ```
 
 ### Settings
@@ -76,18 +79,18 @@ gamecli config reset                   # Reset all to defaults
 | `modifierKey` | `ctrl` | `ctrl`, `alt` |
 | `gameWidthPercent` | `50` | `40` - `80` |
 
-Settings are stored in `~/.gamecli/config.json`.
+Settings are stored in `~/.splitgame/config.json`.
 
 ## CLI Reference
 
 ```bash
-gamecli [options] [--] <command> [args...]
-gamecli install          # Auto-launch in new terminals
-gamecli uninstall        # Remove auto-launch
-gamecli config <sub>     # Manage settings
-gamecli --list-games     # List available games
-gamecli --version        # Show version
-gamecli --help           # Show help
+splitgame [options] [--] <command> [args...]
+splitgame install          # Auto-launch in new terminals
+splitgame uninstall        # Remove auto-launch
+splitgame config <sub>     # Manage settings
+splitgame --list-games     # List available games
+splitgame --version        # Show version
+splitgame --help           # Show help
 ```
 
 | Option | Description |
@@ -100,12 +103,12 @@ gamecli --help           # Show help
 ## Platform Support
 
 ### Windows
-`gamecli install` patches Windows Terminal's `settings.json` to wrap each profile's command with gamecli. Supports standard profiles, Visual Studio developer prompts, and specialized toolchains. Skips Azure Cloud Shell, WSL, and VS Debug Console.
+`splitgame install` patches Windows Terminal's `settings.json` to wrap each profile's command with splitgame. Supports standard profiles, Visual Studio developer prompts, and specialized toolchains. Skips Azure Cloud Shell, WSL, and VS Debug Console.
 
 ### Linux / macOS
-`gamecli install` appends a guarded auto-launch snippet to your shell profile (`.bashrc`, `.zshrc`, or `config.fish`). Prevents recursion via `GAMECLI_ACTIVE` env var and skips non-TTY sessions.
+`splitgame install` appends a guarded auto-launch snippet to your shell profile (`.bashrc`, `.zshrc`, or `config.fish`). Prevents recursion via `SPLITGAME_ACTIVE` env var and skips non-TTY sessions.
 
-Both platforms create backups in `~/.gamecli/backups/` before modifying anything. `gamecli uninstall` restores the original state.
+Both platforms create backups in `~/.splitgame/backups/` before modifying anything. `splitgame uninstall` restores the original state.
 
 ## Requirements
 

@@ -5,7 +5,7 @@ import * as os from 'os';
 export type ToggleKey = 'esc+esc' | 'ctrl+g' | 'ctrl+]';
 export type ModifierKey = 'ctrl' | 'alt';
 
-export interface GameCliConfig {
+export interface SplitGameConfig {
   toggleKey: ToggleKey;
   modifierKey: ModifierKey;
   gameWidthPercent: number;
@@ -16,7 +16,7 @@ const VALID_MODIFIER_KEYS: ModifierKey[] = ['ctrl', 'alt'];
 const MIN_GAME_WIDTH = 40;
 const MAX_GAME_WIDTH = 80;
 
-const DEFAULTS: GameCliConfig = {
+const DEFAULTS: SplitGameConfig = {
   toggleKey: 'esc+esc',
   modifierKey: 'ctrl',
   gameWidthPercent: 50,
@@ -27,26 +27,26 @@ export type ConfigKey = (typeof CONFIG_KEYS)[number];
 
 export class ConfigManager {
   private filePath: string;
-  private config: GameCliConfig;
+  private config: SplitGameConfig;
 
   constructor() {
-    const dir = path.join(os.homedir(), '.gamecli');
+    const dir = path.join(os.homedir(), '.splitgame');
     this.filePath = path.join(dir, 'config.json');
     this.ensureDir(dir);
     this.config = this.load();
   }
 
-  get<K extends keyof GameCliConfig>(key: K): GameCliConfig[K] {
+  get<K extends keyof SplitGameConfig>(key: K): SplitGameConfig[K] {
     return this.config[key];
   }
 
-  set<K extends keyof GameCliConfig>(key: K, value: GameCliConfig[K]): void {
+  set<K extends keyof SplitGameConfig>(key: K, value: SplitGameConfig[K]): void {
     this.validate(key, value);
     this.config[key] = value;
     this.save();
   }
 
-  getAll(): GameCliConfig {
+  getAll(): SplitGameConfig {
     return { ...this.config };
   }
 
@@ -55,12 +55,12 @@ export class ConfigManager {
     this.save();
   }
 
-  resetKey<K extends keyof GameCliConfig>(key: K): void {
+  resetKey<K extends keyof SplitGameConfig>(key: K): void {
     this.config[key] = DEFAULTS[key];
     this.save();
   }
 
-  static defaults(): GameCliConfig {
+  static defaults(): SplitGameConfig {
     return { ...DEFAULTS };
   }
 
@@ -80,7 +80,7 @@ export class ConfigManager {
     return MAX_GAME_WIDTH;
   }
 
-  validate<K extends keyof GameCliConfig>(key: K, value: GameCliConfig[K]): void {
+  validate<K extends keyof SplitGameConfig>(key: K, value: SplitGameConfig[K]): void {
     switch (key) {
       case 'toggleKey':
         if (!VALID_TOGGLE_KEYS.includes(value as ToggleKey)) {
@@ -104,7 +104,7 @@ export class ConfigManager {
     }
   }
 
-  private load(): GameCliConfig {
+  private load(): SplitGameConfig {
     try {
       const raw = fs.readFileSync(this.filePath, 'utf-8');
       const parsed = JSON.parse(raw);

@@ -1,11 +1,11 @@
 {
-  "name": "gamecli",
-  "version": "0.1.0",
+  "name": "splitgame",
+  "version": "0.1.1",
   "description": "Play games in a split terminal overlay alongside your CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
   "bin": {
-    "gamecli": "./bin/gamecli.js"
+    "splitgame": "./bin/splitgame.js"
   },
   "files": [
     "bin/",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "start": "node bin/gamecli.js",
+    "start": "node bin/splitgame.js",
     "test": "vitest run"
   },
   "engines": {
@@ -23,11 +23,11 @@
   "author": "dpkay <hello@dpkay.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dpkay-io/gamecli.git"
+    "url": "https://github.com/dpkay-io/splitgame.git"
   },
-  "homepage": "https://github.com/dpkay-io/gamecli",
+  "homepage": "https://github.com/dpkay-io/splitgame",
   "bugs": {
-    "url": "https://github.com/dpkay-io/gamecli/issues"
+    "url": "https://github.com/dpkay-io/splitgame/issues"
   },
   "keywords": [
     "cli",

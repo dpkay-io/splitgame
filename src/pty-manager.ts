@@ -28,7 +28,7 @@ export class PtyManager {
       cols,
       rows,
       cwd: process.cwd(),
-      env: { ...process.env, GAMECLI_ACTIVE: '1' } as Record<string, string>,
+      env: { ...process.env, SPLITGAME_ACTIVE: '1' } as Record<string, string>,
       ...(process.platform === 'win32' ? { useConpty: true } : {}),
     });
 

@@ -86,7 +86,7 @@ export class Orchestrator {
     process.on('exit', () => this.cleanup());
     process.on('uncaughtException', (err) => {
       this.cleanup();
-      process.stderr.write(`gamecli fatal: ${err.message}\n`);
+      process.stderr.write(`splitgame fatal: ${err.message}\n`);
       process.exit(1);
     });
 

@@ -65,13 +65,13 @@ const SKIP_SOURCE_PREFIXES = [
 ];
 
 export class TerminalInstaller {
-  private gamecliDir: string;
+  private splitgameDir: string;
   private manifestPath: string;
   private settingsSearchPaths: string[];
 
-  constructor(options?: { gamecliDir?: string; settingsSearchPaths?: string[] }) {
-    this.gamecliDir = options?.gamecliDir ?? path.join(os.homedir(), '.gamecli');
-    this.manifestPath = path.join(this.gamecliDir, 'install-manifest.json');
+  constructor(options?: { splitgameDir?: string; settingsSearchPaths?: string[] }) {
+    this.splitgameDir = options?.splitgameDir ?? path.join(os.homedir(), '.splitgame');
+    this.manifestPath = path.join(this.splitgameDir, 'install-manifest.json');
 
     const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
     this.settingsSearchPaths = options?.settingsSearchPaths ?? [
@@ -94,7 +94,7 @@ export class TerminalInstaller {
   }
 
   install(): InstallResult {
-    this.ensureGamecliInPath();
+    this.ensureSplitgameInPath();
 
     const settingsPath = this.findSettingsFile();
     if (!settingsPath) {
@@ -119,7 +119,7 @@ export class TerminalInstaller {
     const rawContent = fs.readFileSync(settingsPath, 'utf-8');
     const settings: WTSettings = parseJsonc(rawContent);
 
-    const backupDir = path.join(this.gamecliDir, 'backups');
+    const backupDir = path.join(this.splitgameDir, 'backups');
     this.ensureDir(backupDir);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(backupDir, `settings.${timestamp}.json`);
@@ -166,7 +166,7 @@ export class TerminalInstaller {
       backupPath,
       profiles: patched,
     };
-    this.ensureDir(this.gamecliDir);
+    this.ensureDir(this.splitgameDir);
     fs.writeFileSync(this.manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
     return { settingsPath, backupPath, patched, skipped, alreadyInstalled: false };
@@ -304,7 +304,7 @@ export class TerminalInstaller {
   }
 
   private getSkipReason(profile: WTProfile): string | null {
-    if (profile.commandline && profile.commandline.includes('gamecli')) {
+    if (profile.commandline && profile.commandline.includes('splitgame')) {
       return 'already wrapped';
     }
 
@@ -333,19 +333,19 @@ export class TerminalInstaller {
   private buildWrappedCommand(originalCmd: string): string {
     const hasSpaces = originalCmd.includes(' ');
     if (hasSpaces) {
-      return `cmd.exe /c gamecli -- ${originalCmd}`;
+      return `cmd.exe /c splitgame -- ${originalCmd}`;
     }
-    return `cmd.exe /c gamecli ${originalCmd}`;
+    return `cmd.exe /c splitgame ${originalCmd}`;
   }
 
-  private ensureGamecliInPath(): void {
+  private ensureSplitgameInPath(): void {
     const pathDirs = (process.env.PATH || '').split(path.delimiter);
-    const gamecliNames = process.platform === 'win32'
-      ? ['gamecli.cmd', 'gamecli.ps1', 'gamecli', 'gamecli.exe']
-      : ['gamecli'];
+    const splitgameNames = process.platform === 'win32'
+      ? ['splitgame.cmd', 'splitgame.ps1', 'splitgame', 'splitgame.exe']
+      : ['splitgame'];
 
     for (const dir of pathDirs) {
-      for (const name of gamecliNames) {
+      for (const name of splitgameNames) {
         try {
           fs.accessSync(path.join(dir, name), fs.constants.X_OK);
           return;
@@ -356,11 +356,11 @@ export class TerminalInstaller {
     }
 
     throw new Error(
-      'gamecli is not globally installed (not found in PATH).\n' +
-      'Windows Terminal needs gamecli in PATH to launch it.\n\n' +
+      'splitgame is not globally installed (not found in PATH).\n' +
+      'Windows Terminal needs splitgame in PATH to launch it.\n\n' +
       'Run one of:\n' +
-      '  npm install -g gamecli\n' +
-      '  npm link           (from the gamecli project directory)'
+      '  npm install -g splitgame\n' +
+      '  npm link           (from the splitgame project directory)'
     );
   }
 
