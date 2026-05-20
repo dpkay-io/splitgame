@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-export type ToggleKey = 'esc+esc' | 'ctrl+g' | 'ctrl+]';
+export type ToggleKey = 'esc+esc' | 'f12' | 'ctrl+]';
 export type ModifierKey = 'ctrl' | 'alt';
 
 export interface SplitGameConfig {
@@ -11,13 +11,13 @@ export interface SplitGameConfig {
   gameWidthPercent: number;
 }
 
-const VALID_TOGGLE_KEYS: ToggleKey[] = ['esc+esc', 'ctrl+g', 'ctrl+]'];
+const VALID_TOGGLE_KEYS: ToggleKey[] = ['esc+esc', 'f12', 'ctrl+]'];
 const VALID_MODIFIER_KEYS: ModifierKey[] = ['ctrl', 'alt'];
-const MIN_GAME_WIDTH = 40;
+const MIN_GAME_WIDTH = 20;
 const MAX_GAME_WIDTH = 80;
 
 const DEFAULTS: SplitGameConfig = {
-  toggleKey: 'esc+esc',
+  toggleKey: 'f12',
   modifierKey: 'ctrl',
   gameWidthPercent: 50,
 };

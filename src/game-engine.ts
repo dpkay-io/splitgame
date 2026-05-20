@@ -48,4 +48,5 @@ export class GameEngine {
   reset(): void { this.game.reset(); }
   get isPaused(): boolean { return this.game.isPaused(); }
   get isGameOver(): boolean { return this.game.isGameOver(); }
+  get currentGame(): IGame { return this.game; }
 }

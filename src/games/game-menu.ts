@@ -1,5 +1,5 @@
 import { IGame, GameRenderState, GameCell, ANSIColor } from '../types';
-import { getGameList, GameInfo } from '../game-registry';
+import { getGameList, createGame, GameInfo } from '../game-registry';
 import { HighScoreManager } from '../high-scores';
 import { ConfigManager, ConfigKey, CONFIG_KEYS } from '../config';
 
@@ -11,6 +11,7 @@ const DARK_GRAY: ANSIColor = { mode: 'palette', value: 8 };
 const HIGHLIGHT_BG: ANSIColor = { mode: 'palette', value: 236 };
 const CYAN: ANSIColor = { mode: 'palette', value: 14 };
 const GREEN: ANSIColor = { mode: 'palette', value: 10 };
+const MAGENTA: ANSIColor = { mode: 'palette', value: 13 };
 const TAB_ACTIVE_BG: ANSIColor = { mode: 'palette', value: 238 };
 const TAB_INACTIVE_FG: ANSIColor = { mode: 'palette', value: 245 };
 
@@ -32,6 +33,7 @@ export class GameMenu implements IGame {
   private _selected: GameInfo | null = null;
   private currentTab = 0;
   private configCursor = 0;
+  private claudeConnected = false;
 
   constructor(
     private highScores?: HighScoreManager,
@@ -45,6 +47,10 @@ export class GameMenu implements IGame {
 
   clearSelection(): void {
     this._selected = null;
+  }
+
+  setClaudeConnected(connected: boolean): void {
+    this.claudeConnected = connected;
   }
 
   init(width: number, height: number): void {
@@ -204,7 +210,16 @@ export class GameMenu implements IGame {
       const fg = isSelected ? YELLOW : GRAY;
       const bg = isSelected ? HIGHLIGHT_BG : DEFAULT;
 
-      this.writeText(grid, row, text, fg, bg);
+      const col = Math.max(0, Math.floor((this.width - text.length) / 2));
+      this.writeTextAt(grid, row, col, text, fg, bg);
+
+      if (this.claudeConnected) {
+        const instance = createGame(this.games[i].id);
+        if (instance.supportsExternalMoves) {
+          const tag = ' vs Claude';
+          this.writeTextAt(grid, row, col + text.length, tag, MAGENTA, bg);
+        }
+      }
     }
   }
 

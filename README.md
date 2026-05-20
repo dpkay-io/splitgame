@@ -11,10 +11,10 @@ npm install -g splitgame
 # 2. One-time setup: auto-launch in every new terminal
 splitgame install
 
-# 3. Play! Double-tap Escape at any time to toggle the game panel
+# 3. Play! f12 at any time to toggle the game panel
 ```
 
-That's it. Every new terminal session now has splitgame running in the background. The game panel starts hidden — **double-tap Escape** (or your configured toggle key) to show it whenever you want a break. Press it again to hide and get back to work.
+That's it. Every new terminal session now has splitgame running in the background. The game panel starts hidden — **F12** (or your configured toggle key) to show it whenever you want a break. Press it again to hide and get back to work.
 
 Requires Node.js >= 18. Use `splitgame uninstall` to remove.
 
@@ -47,7 +47,7 @@ splitgame -g tetris npm run dev
 ### Toggle & Navigation
 | Key | Action |
 |-----|--------|
-| Double-tap Escape | Toggle game panel (configurable) |
+| F12 | Toggle game panel (configurable) |
 | N | Return to game menu |
 | M | Minimize (hide game panel) |
 
@@ -65,9 +65,9 @@ splitgame -g tetris npm run dev
 
 ```bash
 splitgame config list                    # Show all settings
-splitgame config set toggleKey ctrl+g    # Change toggle key
+splitgame config set toggleKey ctrl+]    # Change toggle key
 splitgame config set modifierKey alt     # Change modifier key (ctrl or alt)
-splitgame config set gameWidthPercent 60 # Change game panel width (40-80)
+splitgame config set gameWidthPercent 60 # Change game panel width (20-80)
 splitgame config reset                   # Reset all to defaults
 ```
 
@@ -75,9 +75,9 @@ splitgame config reset                   # Reset all to defaults
 
 | Setting | Default | Options |
 |---------|---------|---------|
-| `toggleKey` | `esc+esc` | `esc+esc`, `ctrl+g`, `ctrl+]` |
+| `toggleKey` | `f12` | `f12`, `esc+esc`, `ctrl+]` |
 | `modifierKey` | `ctrl` | `ctrl`, `alt` |
-| `gameWidthPercent` | `50` | `40` - `80` |
+| `gameWidthPercent` | `50` | `20` - `80` |
 
 Settings are stored in `~/.splitgame/config.json`.
 

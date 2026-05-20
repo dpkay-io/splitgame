@@ -16,7 +16,7 @@ export class InputRouter {
     private onChildInput: InputCallback,
     private onGameInput: (key: string) => void,
     private getFocus: () => InputFocus,
-    toggleKey: ToggleKey = 'esc+esc',
+    toggleKey: ToggleKey = 'ctrl+]',
     modifierKey: ModifierKey = 'ctrl',
   ) {
     this.toggleKey = toggleKey;
@@ -48,6 +48,9 @@ export class InputRouter {
     process.stdin.removeListener('data', this.handleData);
     if (this.escapeTimer) clearTimeout(this.escapeTimer);
     try {
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
       process.stdin.pause();
     } catch {
       // May already be closed
@@ -104,7 +107,7 @@ export class InputRouter {
   };
 
   private checkSingleKeyToggle(data: Buffer): boolean {
-    if (this.toggleKey === 'ctrl+g' && data.length === 1 && data[0] === 0x07) return true;
+    if (this.toggleKey === 'f12' && data.toString('utf8') === '\x1b[24~') return true;
     if (this.toggleKey === 'ctrl+]' && data.length === 1 && data[0] === 0x1d) return true;
     return false;
   }
@@ -138,9 +141,9 @@ export class InputRouter {
     if (s === 'd' || s === 'D') return 'right';
 
     if (data.length === 1 && data[0] === 0) return 'pause';
+    if (s === 'p' || s === 'P') return 'pause';
     if (s === 'm' || s === 'M') return 'minimize';
     if (s === 'r' || s === 'R') return 'reset';
-    if (s === 'q' || s === 'Q') return 'quit';
     if (s === 'f' || s === 'F') return 'flag';
     if (s === 'n' || s === 'N') return 'next-game';
     if (s === ' ') return 'space';

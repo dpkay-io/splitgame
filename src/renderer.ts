@@ -1,4 +1,4 @@
-import { ScreenCell, GameRenderState, PanelGeometry, GameCell, ANSIColor } from './types';
+import { ScreenCell, GameRenderState, PanelGeometry, GameCell } from './types';
 import { TerminalEmulator } from './terminal-emulator';
 import * as ansi from './utils/ansi';
 
@@ -21,8 +21,17 @@ export class Renderer {
   calculateGeometry(): PanelGeometry {
     const totalCols = process.stdout.columns || 80;
     const totalRows = process.stdout.rows || 24;
-    const rightWidth = Math.max(20, Math.floor(totalCols * this.gameWidthPercent / 100));
-    const leftWidth = Math.max(20, totalCols - rightWidth - 1);
+    let rightWidth = Math.max(20, Math.floor(totalCols * this.gameWidthPercent / 100));
+    let leftWidth = Math.max(20, totalCols - rightWidth - 1);
+
+    // Clamp: panels + border must not exceed totalCols
+    if (leftWidth + rightWidth + 1 > totalCols) {
+      rightWidth = totalCols - leftWidth - 1;
+    }
+    // Enforce minimum 10 columns for each panel
+    rightWidth = Math.max(10, rightWidth);
+    leftWidth = Math.max(10, leftWidth);
+
     return {
       leftWidth,
       rightWidth,
@@ -102,8 +111,6 @@ export class Renderer {
     for (let row = 0; row < totalRows; row++) {
       output += ansi.moveTo(row + 1, 1);
       const childRow = this.emulator.getRow(row);
-      let prevFg: ANSIColor = { mode: 'default', value: 0 };
-      let prevBg: ANSIColor = { mode: 'default', value: 0 };
       let prevAttrs = '';
       output += ansi.resetAttributes();
 
@@ -115,8 +122,6 @@ export class Renderer {
         if (attrs !== prevAttrs) {
           output += ansi.resetAttributes() + attrs;
           prevAttrs = attrs;
-          prevFg = cell.fg;
-          prevBg = cell.bg;
         }
         output += cell.char;
       }

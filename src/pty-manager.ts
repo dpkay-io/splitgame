@@ -16,24 +16,42 @@ export class PtyManager {
     }
     try {
       const result = execFileSync('where.exe', [command], { encoding: 'utf-8', timeout: 5000 });
-      return result.trim().split(/\r?\n/)[0].trim();
+      const paths = result.trim().split(/\r?\n/).map(p => p.trim()).filter(Boolean);
+      return paths.find(p => /\.exe$/i.test(p))
+        || paths.find(p => /\.(cmd|bat)$/i.test(p))
+        || paths[0];
     } catch {
       return command;
     }
   }
 
   spawn(command: string, args: string[], cols: number, rows: number): void {
-    this.ptyProcess = pty.spawn(this.resolveCommand(command), args, {
+    let resolved = this.resolveCommand(command);
+    let spawnArgs = args;
+
+    if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved)) {
+      spawnArgs = ['/c', resolved, ...args];
+      resolved = 'cmd.exe';
+    }
+
+    this.ptyProcess = pty.spawn(resolved, spawnArgs, {
       name: 'xterm-256color',
       cols,
       rows,
       cwd: process.cwd(),
-      env: { ...process.env, SPLITGAME_ACTIVE: '1' } as Record<string, string>,
+      env: (() => {
+        const env: Record<string, string> = {};
+        for (const [k, v] of Object.entries(process.env)) {
+          if (v !== undefined) env[k] = v;
+        }
+        env.SPLITGAME_ACTIVE = '1';
+        return env;
+      })(),
       ...(process.platform === 'win32' ? { useConpty: true } : {}),
     });
 
     this.ptyProcess.onData(this.onData);
-    this.ptyProcess.onExit(({ exitCode }) => this.onExit(exitCode));
+    this.ptyProcess.onExit(({ exitCode }) => this.onExit(exitCode ?? 1));
   }
 
   write(data: string): void {

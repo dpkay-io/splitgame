@@ -8,9 +8,11 @@ const DARK_GRAY: ANSIColor = { mode: 'palette', value: 8 };
 const WHITE: ANSIColor = { mode: 'palette', value: 15 };
 const DEFAULT: ANSIColor = { mode: 'default', value: 0 };
 const CURSOR_BG: ANSIColor = { mode: 'palette', value: 236 };
+const MAGENTA: ANSIColor = { mode: 'palette', value: 13 };
 
 export class TicTacToeGame implements IGame {
   readonly name = 'Tic-Tac-Toe';
+  readonly supportsExternalMoves = true;
 
   private width = 0;
   private height = 0;
@@ -23,6 +25,8 @@ export class TicTacToeGame implements IGame {
   private wins = 0;
   private losses = 0;
   private draws = 0;
+  private opponentMode: 'ai' | 'claude' = 'ai';
+  private _waitingForClaude = false;
 
   init(width: number, height: number): void {
     this.width = width;
@@ -42,6 +46,7 @@ export class TicTacToeGame implements IGame {
       return;
     }
     if (this._paused) return;
+    if (this._waitingForClaude) return;
 
     switch (key) {
       case 'up':    this.cursorRow = Math.max(0, this.cursorRow - 1); break;
@@ -66,10 +71,16 @@ export class TicTacToeGame implements IGame {
       statusMessage = 'PAUSED';
     } else if (this._gameOver) {
       if (this.winner === 'X') statusMessage = 'You win! Press SPACE for new round';
-      else if (this.winner === 'O') statusMessage = 'AI wins! Press SPACE for new round';
+      else if (this.winner === 'O') {
+        statusMessage = this.opponentMode === 'claude'
+          ? 'Claude wins! Press SPACE for new round'
+          : 'AI wins! Press SPACE for new round';
+      }
       else statusMessage = 'Draw! Press SPACE for new round';
+    } else if (this._waitingForClaude) {
+      statusMessage = 'Waiting for Claude...';
     } else {
-      statusMessage = 'Your turn';
+      statusMessage = this.opponentMode === 'claude' ? 'Your turn (vs Claude)' : 'Your turn';
     }
 
     statusMessage += `  |  W:${this.wins} L:${this.losses} D:${this.draws}`;
@@ -99,6 +110,63 @@ export class TicTacToeGame implements IGame {
     this.resetBoard();
   }
 
+  setOpponentMode(mode: 'ai' | 'claude'): void {
+    this.opponentMode = mode;
+    if (mode === 'ai' && this._waitingForClaude) {
+      this._waitingForClaude = false;
+      this.aiMove();
+      const result = this.checkWinner();
+      if (result) this.endRound(result);
+    }
+  }
+
+  getCompactState(): { board: string; validMoves: string[]; turn: 'player' | 'external' | null } {
+    const rows: string[] = [];
+    for (let r = 0; r < 3; r++) {
+      let row = '';
+      for (let c = 0; c < 3; c++) {
+        const mark = this.board[r * 3 + c];
+        row += mark === null ? '_' : mark;
+      }
+      rows.push(row);
+    }
+
+    const validMoves: string[] = [];
+    for (let i = 0; i < 9; i++) {
+      if (this.board[i] === null) {
+        validMoves.push(`${Math.floor(i / 3)},${i % 3}`);
+      }
+    }
+
+    let turn: 'player' | 'external' | null = null;
+    if (!this._gameOver) {
+      turn = this._waitingForClaude ? 'external' : 'player';
+    }
+
+    return { board: rows.join('|'), validMoves, turn };
+  }
+
+  externalMove(move: string): boolean {
+    if (!this._waitingForClaude || this._gameOver) return false;
+
+    const parts = move.split(',').map(Number);
+    if (parts.length !== 2 || parts.some(isNaN)) return false;
+
+    const [row, col] = parts;
+    if (row < 0 || row > 2 || col < 0 || col > 2) return false;
+
+    const idx = row * 3 + col;
+    if (this.board[idx] !== null) return false;
+
+    this.board[idx] = 'O';
+    this._waitingForClaude = false;
+
+    const result = this.checkWinner();
+    if (result) this.endRound(result);
+
+    return true;
+  }
+
   // --- Private: game logic ---
 
   private resetBoard(): void {
@@ -107,6 +175,7 @@ export class TicTacToeGame implements IGame {
     this.cursorCol = 1;
     this._gameOver = false;
     this._paused = false;
+    this._waitingForClaude = false;
     this.winner = null;
   }
 
@@ -118,6 +187,11 @@ export class TicTacToeGame implements IGame {
     const result = this.checkWinner();
     if (result) {
       this.endRound(result);
+      return;
+    }
+
+    if (this.opponentMode === 'claude') {
+      this._waitingForClaude = true;
       return;
     }
 
@@ -264,7 +338,24 @@ export class TicTacToeGame implements IGame {
       }
     }
 
+    if (this.opponentMode === 'claude' && !this._gameOver) {
+      const msgRow = startRow + totalH + 1;
+      if (this._waitingForClaude) {
+        this.writeGridText(grid, msgRow, "Claude's turn...", MAGENTA);
+      } else {
+        this.writeGridText(grid, msgRow, 'Your turn', WHITE);
+      }
+    }
+
     return grid;
+  }
+
+  private writeGridText(grid: GameCell[][], row: number, text: string, fg: ANSIColor): void {
+    if (row < 0 || row >= this.height) return;
+    const col = Math.max(0, Math.floor((this.width - text.length) / 2));
+    for (let i = 0; i < text.length && col + i < this.width; i++) {
+      grid[row][col + i] = { char: text[i], fg, bg: DEFAULT };
+    }
   }
 
   private renderCell(

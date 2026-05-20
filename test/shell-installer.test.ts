@@ -66,6 +66,7 @@ describe('ShellProfileInstaller', () => {
         expect(content).toContain('>>> splitgame auto-launch >>>');
         expect(content).toContain('exec splitgame "$SHELL"');
         expect(content).toContain('SPLITGAME_ACTIVE');
+        expect(content).toContain('command -v splitgame >/dev/null 2>&1');
         expect(content).toContain('<<< splitgame auto-launch <<<');
         // Original content preserved
         expect(content).toContain('export PATH="/usr/local/bin:$PATH"');
@@ -107,6 +108,7 @@ describe('ShellProfileInstaller', () => {
         const content = fs.readFileSync(configFish, 'utf-8');
         expect(content).toContain('exec splitgame $SHELL');
         expect(content).toContain('status is-interactive');
+        expect(content).toContain('command -q splitgame');
       });
     });
 

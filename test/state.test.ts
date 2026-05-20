@@ -35,6 +35,8 @@ describe('StateMachine', () => {
     sm.transition(StateTransition.TOGGLE); // → ACTIVE
     sm.transition(StateTransition.MANUAL_PAUSE);
     expect(sm.state).toBe(AppState.GAME_PAUSED);
+    expect(sm.snapshot.inputFocus).toBe(InputFocus.CHILD);
+    expect(sm.snapshot.gameVisible).toBe(true);
   });
 
   it('RESUME from PAUSED → ACTIVE', () => {

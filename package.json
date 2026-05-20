@@ -1,11 +1,12 @@
 {
   "name": "splitgame",
-  "version": "0.1.1",
+  "version": "0.2.2",
   "description": "Play games in a split terminal overlay alongside your CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
   "bin": {
-    "splitgame": "./bin/splitgame.js"
+    "splitgame": "./bin/splitgame.js",
+    "splitgame-mcp": "./bin/mcp-server.js"
   },
   "files": [
     "bin/",
@@ -15,7 +16,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "node bin/splitgame.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preuninstall": "node bin/preuninstall.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -47,8 +49,10 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@xterm/headless": "^6.0.0",
-    "node-pty": "^1.1.0"
+    "node-pty": "^1.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

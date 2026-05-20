@@ -4,6 +4,7 @@ import { ScreenCell, ANSIColor } from './types';
 export class TerminalEmulator {
   private terminal: Terminal;
   private _dirty: boolean = true;
+  private disposed: boolean = false;
 
   constructor(cols: number, rows: number) {
     this.terminal = new Terminal({
@@ -19,6 +20,7 @@ export class TerminalEmulator {
   }
 
   write(data: string): void {
+    if (this.disposed) return;
     this.terminal.write(data);
   }
 
@@ -33,6 +35,7 @@ export class TerminalEmulator {
   }
 
   resize(cols: number, rows: number): void {
+    if (this.disposed) return;
     this.terminal.resize(Math.max(1, cols), Math.max(1, rows));
     this._dirty = true;
   }
@@ -60,11 +63,13 @@ export class TerminalEmulator {
   }
 
   getCursor(): { x: number; y: number } {
+    if (this.disposed) return { x: 0, y: 0 };
     const buf = this.terminal.buffer.active;
     return { x: buf.cursorX, y: buf.cursorY };
   }
 
   getRow(row: number): ScreenCell[] {
+    if (this.disposed) return [];
     const cells: ScreenCell[] = [];
     for (let c = 0; c < this.terminal.cols; c++) {
       cells.push(this.getCell(row, c));
@@ -75,7 +80,10 @@ export class TerminalEmulator {
   get cols(): number { return this.terminal.cols; }
   get rows(): number { return this.terminal.rows; }
 
-  dispose(): void { this.terminal.dispose(); }
+  dispose(): void {
+    this.disposed = true;
+    this.terminal.dispose();
+  }
 
   private extractColor(
     isDefault: boolean, isPalette: boolean, isRGB: boolean, value: number

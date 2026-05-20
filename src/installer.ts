@@ -331,11 +331,20 @@ export class TerminalInstaller {
   }
 
   private buildWrappedCommand(originalCmd: string): string {
+    if (this.isPowerShellExe(originalCmd)) {
+      return `${originalCmd} -NoProfile -Command "if (Get-Command splitgame -ErrorAction SilentlyContinue) { splitgame ${originalCmd}; if ($LASTEXITCODE -ne 0) { ${originalCmd} } } else { ${originalCmd} }"`;
+    }
     const hasSpaces = originalCmd.includes(' ');
     if (hasSpaces) {
-      return `cmd.exe /c splitgame -- ${originalCmd}`;
+      return `cmd.exe /c splitgame -- ${originalCmd} || ${originalCmd}`;
     }
-    return `cmd.exe /c splitgame ${originalCmd}`;
+    return `cmd.exe /c splitgame ${originalCmd} || ${originalCmd}`;
+  }
+
+  private isPowerShellExe(cmd: string): boolean {
+    const lower = cmd.toLowerCase().trim();
+    return lower === 'powershell.exe' || lower === 'pwsh.exe'
+      || lower === 'powershell' || lower === 'pwsh';
   }
 
   private ensureSplitgameInPath(): void {

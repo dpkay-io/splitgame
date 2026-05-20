@@ -49,6 +49,11 @@ export interface IGame {
   resume(): void;
   isGameOver(): boolean;
   reset(): void;
+
+  readonly supportsExternalMoves?: boolean;
+  getCompactState?(): { board: string; validMoves: string[]; turn: 'player' | 'external' | null };
+  externalMove?(move: string): boolean;
+  setOpponentMode?(mode: 'ai' | 'claude'): void;
 }
 
 export interface GameRenderState {

@@ -36,7 +36,7 @@ function buildSnippet(shell: string): string {
   if (shell === 'fish') {
     return [
       MARKER_START,
-      'if not set -q SPLITGAME_ACTIVE; and status is-interactive; and isatty stdout',
+      'if not set -q SPLITGAME_ACTIVE; and status is-interactive; and isatty stdout; and command -q splitgame',
       '  set -gx SPLITGAME_ACTIVE 1',
       '  exec splitgame $SHELL',
       'end',
@@ -45,7 +45,7 @@ function buildSnippet(shell: string): string {
   }
   return [
     MARKER_START,
-    'if [ -z "$SPLITGAME_ACTIVE" ] && [ -t 1 ]; then',
+    'if [ -z "$SPLITGAME_ACTIVE" ] && [ -t 1 ] && command -v splitgame >/dev/null 2>&1; then',
     '  export SPLITGAME_ACTIVE=1',
     '  exec splitgame "$SHELL"',
     'fi',

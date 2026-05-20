@@ -120,16 +120,16 @@ describe('TerminalInstaller', () => {
         expect(result.alreadyInstalled).toBe(false);
         expect(result.patched).toHaveLength(3);
         expect(result.patched[0].name).toBe('Windows PowerShell');
-        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c splitgame powershell.exe');
+        expect(result.patched[0].installedCommandline).toBe('powershell.exe -NoProfile -Command "if (Get-Command splitgame -ErrorAction SilentlyContinue) { splitgame powershell.exe; if ($LASTEXITCODE -ne 0) { powershell.exe } } else { powershell.exe }"');
         expect(result.patched[0].originalCommandline).toBeNull();
         expect(result.patched[1].name).toBe('Command Prompt');
-        expect(result.patched[1].installedCommandline).toBe('cmd.exe /c splitgame cmd.exe');
+        expect(result.patched[1].installedCommandline).toBe('cmd.exe /c splitgame cmd.exe || cmd.exe');
         expect(result.patched[2].name).toBe('Developer Command Prompt for VS 2022');
-        expect(result.patched[2].installedCommandline).toBe('cmd.exe /c splitgame -- cmd.exe /k "C:\\VS\\DevCmd.bat"');
+        expect(result.patched[2].installedCommandline).toBe('cmd.exe /c splitgame -- cmd.exe /k "C:\\VS\\DevCmd.bat" || cmd.exe /k "C:\\VS\\DevCmd.bat"');
 
         const updated = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         const ps = updated.profiles.list.find((p: any) => p.name === 'Windows PowerShell');
-        expect(ps.commandline).toBe('cmd.exe /c splitgame powershell.exe');
+        expect(ps.commandline).toBe('powershell.exe -NoProfile -Command "if (Get-Command splitgame -ErrorAction SilentlyContinue) { splitgame powershell.exe; if ($LASTEXITCODE -ne 0) { powershell.exe } } else { powershell.exe }"');
       } finally {
         process.env.PATH = origPath;
       }
@@ -217,7 +217,7 @@ describe('TerminalInstaller', () => {
 
       try {
         const result = installer.install();
-        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c splitgame -- C:\\my shell\\shell.exe -flag');
+        expect(result.patched[0].installedCommandline).toBe('cmd.exe /c splitgame -- C:\\my shell\\shell.exe -flag || C:\\my shell\\shell.exe -flag');
       } finally {
         process.env.PATH = origPath;
       }

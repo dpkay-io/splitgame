@@ -47,7 +47,7 @@ export class StateMachine extends EventEmitter {
   }
 
   private getInputFocus(): InputFocus {
-    if (this._state === AppState.GAME_ACTIVE || this._state === AppState.GAME_PAUSED) return InputFocus.GAME;
+    if (this._state === AppState.GAME_ACTIVE) return InputFocus.GAME;
     return InputFocus.CHILD;
   }
 }
