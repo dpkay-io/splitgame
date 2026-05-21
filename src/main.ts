@@ -130,6 +130,7 @@ function printHelp(): void {
   process.stdout.write('    splitgame uninstall                              Remove auto-launch integration\n');
   process.stdout.write('    splitgame config [list|get|set|reset]            Manage settings\n');
   process.stdout.write('    splitgame mcp-setup                              Configure Claude Code MCP integration\n');
+  process.stdout.write('    splitgame update                                 Self-update (avoids Windows file lock issues)\n');
   process.stdout.write('    splitgame --list-games                           Show available games\n\n');
   process.stdout.write('  Options:\n');
   process.stdout.write('    -g, --game <game>    Start with a specific game\n');
@@ -146,7 +147,7 @@ function main(): void {
 
   // Nesting detection: if already running inside splitgame, skip wrapping
   // Subcommands (config, install, etc.) are allowed even when nested
-  const SUBCOMMANDS = ['config', 'install', 'uninstall', 'mcp-setup', '--version', '-V', '--help', '-h', '--list-games'];
+  const SUBCOMMANDS = ['config', 'install', 'uninstall', 'update', 'mcp-setup', '--version', '-V', '--help', '-h', '--list-games'];
   const isSubcommand = rawArgs.length > 0 && SUBCOMMANDS.includes(rawArgs[0]);
   if (!isSubcommand && process.env.SPLITGAME_ACTIVE === '1') {
     process.stderr.write('splitgame: already running in this session, launching child directly\n');
