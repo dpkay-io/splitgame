@@ -27,6 +27,8 @@ export class TicTacToeGame implements IGame {
   private draws = 0;
   private opponentMode: 'ai' | 'claude' = 'ai';
   private _waitingForClaude = false;
+  private difficulty: 'easy' | 'medium' | 'hard' = 'medium';
+  private movesMade = false;
 
   init(width: number, height: number): void {
     this.width = width;
@@ -42,11 +44,18 @@ export class TicTacToeGame implements IGame {
     if (this._gameOver) {
       if (key === 'space' || key === 'enter' || key === 'reset') {
         this.resetBoard();
+      } else if (key === 'up' || key === 'down') {
+        this.cycleDifficulty(key);
       }
       return;
     }
     if (this._paused) return;
     if (this._waitingForClaude) return;
+
+    if (!this.movesMade && this.opponentMode !== 'claude' && (key === 'up' || key === 'down')) {
+      this.cycleDifficulty(key);
+      return;
+    }
 
     switch (key) {
       case 'up':    this.cursorRow = Math.max(0, this.cursorRow - 1); break;
@@ -63,6 +72,12 @@ export class TicTacToeGame implements IGame {
     }
   }
 
+  private cycleDifficulty(key: 'up' | 'down'): void {
+    const levels: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard'];
+    const idx = levels.indexOf(this.difficulty);
+    this.difficulty = levels[(idx + (key === 'up' ? 1 : levels.length - 1)) % levels.length];
+  }
+
   getState(): GameRenderState {
     const grid = this.buildGrid();
 
@@ -70,20 +85,23 @@ export class TicTacToeGame implements IGame {
     if (this._paused) {
       statusMessage = 'PAUSED';
     } else if (this._gameOver) {
-      if (this.winner === 'X') statusMessage = 'You win! Press SPACE for new round';
+      if (this.winner === 'X') statusMessage = 'You win! SPACE:New ↑↓:Difficulty';
       else if (this.winner === 'O') {
         statusMessage = this.opponentMode === 'claude'
-          ? 'Claude wins! Press SPACE for new round'
-          : 'AI wins! Press SPACE for new round';
+          ? 'Claude wins! SPACE:New'
+          : 'AI wins! SPACE:New ↑↓:Difficulty';
       }
-      else statusMessage = 'Draw! Press SPACE for new round';
+      else statusMessage = 'Draw! SPACE:New ↑↓:Difficulty';
     } else if (this._waitingForClaude) {
       statusMessage = 'Waiting for Claude...';
+    } else if (!this.movesMade && this.opponentMode !== 'claude') {
+      statusMessage = `↑↓:Difficulty [${this.difficulty}]  SPACE:Play`;
     } else {
       statusMessage = this.opponentMode === 'claude' ? 'Your turn (vs Claude)' : 'Your turn';
     }
 
-    statusMessage += `  |  W:${this.wins} L:${this.losses} D:${this.draws}`;
+    const diffLabel = this.opponentMode === 'claude' ? '' : ` [${this.difficulty}]`;
+    statusMessage += `  |  W:${this.wins} L:${this.losses} D:${this.draws}${diffLabel}`;
 
     return {
       grid,
@@ -177,12 +195,14 @@ export class TicTacToeGame implements IGame {
     this._paused = false;
     this._waitingForClaude = false;
     this.winner = null;
+    this.movesMade = false;
   }
 
   private placePlayerMark(): void {
     const idx = this.cursorRow * 3 + this.cursorCol;
     if (this.board[idx] !== null) return;
 
+    this.movesMade = true;
     this.board[idx] = 'X';
     const result = this.checkWinner();
     if (result) {
@@ -206,9 +226,17 @@ export class TicTacToeGame implements IGame {
     const empty = this.board.map((v, i) => v === null ? i : -1).filter(i => i >= 0);
     if (empty.length === 0) return;
 
+    const useRandom =
+      (this.difficulty === 'easy' && Math.random() < 0.5) ||
+      (this.difficulty === 'medium' && Math.random() < 0.2);
+
+    if (useRandom) {
+      this.board[empty[Math.floor(Math.random() * empty.length)]] = 'O';
+      return;
+    }
+
     // First-move heuristic: center > corner
     if (empty.length === 8) {
-      // AI's first move (player took one cell)
       if (this.board[4] === null) {
         this.board[4] = 'O';
       } else {

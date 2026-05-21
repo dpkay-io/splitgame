@@ -99,7 +99,7 @@ splitgame config reset                   # Reset to defaults
 
 | Setting | Default | Options |
 |---------|---------|---------|
-| `toggleKey` | `f12` | `f12`, `esc+esc`, `ctrl+]` |
+| `toggleKey` | `f12` | `f12`, `ctrl+]` |
 | `modifierKey` | `ctrl` | `ctrl`, `alt` |
 | `gameWidthPercent` | `50` | `20` - `80` |
 

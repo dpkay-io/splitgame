@@ -268,6 +268,86 @@ describe('TerminalInstaller', () => {
       }
     });
 
+    it('preserves JSONC comments during install', () => {
+      const jsonc = `{
+    // Global settings comment
+    "profiles": {
+        "defaults": {},
+        "list": [
+            {
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "hidden": false,
+                "name": "Windows PowerShell" // inline comment
+            },
+            {
+                /* block comment */
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "hidden": false,
+                "name": "Command Prompt",
+                "commandline": "cmd.exe"
+            }
+        ]
+    }
+}`;
+      const settingsPath = path.join(tempDir, 'settings.json');
+      fs.writeFileSync(settingsPath, jsonc, 'utf-8');
+      const installer = createInstaller(settingsPath);
+
+      const origPath = process.env.PATH;
+      const binDir = path.join(tempDir, 'bin');
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
+      process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
+
+      try {
+        installer.install();
+        const result = fs.readFileSync(settingsPath, 'utf-8');
+        expect(result).toContain('// Global settings comment');
+        expect(result).toContain('// inline comment');
+        expect(result).toContain('/* block comment */');
+        expect(result).toContain('splitgame');
+      } finally {
+        process.env.PATH = origPath;
+      }
+    });
+
+    it('preserves JSONC comments during uninstall', () => {
+      const jsonc = `{
+    // Global settings comment
+    "profiles": {
+        "defaults": {},
+        "list": [
+            {
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "hidden": false,
+                "name": "Command Prompt",
+                "commandline": "cmd.exe" // my cmd
+            }
+        ]
+    }
+}`;
+      const settingsPath = path.join(tempDir, 'settings.json');
+      fs.writeFileSync(settingsPath, jsonc, 'utf-8');
+      const installer = createInstaller(settingsPath);
+
+      const origPath = process.env.PATH;
+      const binDir = path.join(tempDir, 'bin');
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
+      process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
+
+      try {
+        installer.install();
+        installer.uninstall();
+        const result = fs.readFileSync(settingsPath, 'utf-8');
+        expect(result).toContain('// Global settings comment');
+        expect(result).toContain('// my cmd');
+        expect(result).not.toContain('splitgame');
+      } finally {
+        process.env.PATH = origPath;
+      }
+    });
+
     it('does not double-wrap profiles already containing splitgame', () => {
       const settings = {
         profiles: {

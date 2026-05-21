@@ -72,6 +72,7 @@ export class TetrisGame implements IGame {
   private _gameOver = false;
   private dropAccumulator = 0;
   private bag: PieceType[] = [];
+  private nextType: PieceType | null = null;
 
   init(width: number, height: number): void {
     this.panelWidth = Math.max(14, width);
@@ -162,6 +163,7 @@ export class TetrisGame implements IGame {
     this.linesCleared = 0;
     this.dropAccumulator = 0;
     this.bag = [];
+    this.nextType = null;
 
     // Initialize empty board
     this.board = [];
@@ -187,7 +189,8 @@ export class TetrisGame implements IGame {
   }
 
   private spawnPiece(): void {
-    const type = this.nextPieceType();
+    const type = this.nextType ?? this.nextPieceType();
+    this.nextType = this.nextPieceType();
     const blocks = PIECE_SHAPES[type].map(p => ({ ...p }));
     const pos: Point = { x: Math.floor(BOARD_WIDTH / 2), y: 1 };
 
@@ -364,12 +367,32 @@ export class TetrisGame implements IGame {
           const gr = offsetY + 1 + p.y;
           const gc = offsetX + 1 + p.x;
           if (gr >= 0 && gr < this.panelHeight && gc >= 0 && gc < this.panelWidth) {
-            // Only draw ghost where the actual piece isn't
             const isActual = abs.some(a => a.x === p.x && a.y === p.y);
             if (!isActual) {
               grid[gr][gc] = { char: '░', fg: DARK_GRAY, bg: DEFAULT };
             }
           }
+        }
+      }
+    }
+
+    // Draw next-piece preview to the right of the board
+    if (this.nextType) {
+      const previewX = offsetX + fieldDisplayWidth + 1;
+      const previewY = offsetY + 1;
+      const label = 'Next:';
+      for (let i = 0; i < label.length && previewX + i < this.panelWidth; i++) {
+        if (previewY >= 0 && previewY < this.panelHeight) {
+          grid[previewY][previewX + i] = { char: label[i], fg: WHITE, bg: DEFAULT };
+        }
+      }
+      const nextBlocks = PIECE_SHAPES[this.nextType];
+      const nextColor = PIECE_COLORS[this.nextType];
+      for (const b of nextBlocks) {
+        const gr = previewY + 2 + b.y;
+        const gc = previewX + 1 + b.x;
+        if (gr >= 0 && gr < this.panelHeight && gc >= 0 && gc < this.panelWidth) {
+          grid[gr][gc] = { char: '█', fg: nextColor, bg: DEFAULT };
         }
       }
     }

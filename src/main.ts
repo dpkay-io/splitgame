@@ -7,8 +7,8 @@ import { ConfigManager, CONFIG_KEYS, ConfigKey } from './config';
 import { handleInstallCommand, handleUninstallCommand } from './install-command';
 import { setupMcp } from './mcp-setup';
 
-function handleMcpSetup(): void {
-  const result = setupMcp(path.resolve(__dirname, '..'));
+function handleMcpSetup(force: boolean): void {
+  const result = setupMcp(path.resolve(__dirname, '..'), { force });
 
   if (!result.mcpServerFound) {
     process.stderr.write(`splitgame mcp-setup: MCP server not found at ${result.mcpServerPath}\n`);
@@ -19,6 +19,8 @@ function handleMcpSetup(): void {
   for (const config of result.configs) {
     if (config.status === 'configured') {
       process.stdout.write(`MCP server configured for ${config.name} in ${config.path}\n`);
+    } else if (config.status === 'exists') {
+      process.stdout.write(`${config.name} already configured (use --force to overwrite)\n`);
     } else if (config.status === 'parse-error') {
       process.stderr.write(`splitgame mcp-setup: could not parse ${config.path}, skipping\n`);
     }
@@ -48,7 +50,7 @@ function handleConfigCommand(args: string[]): void {
         process.stdout.write(`  ${key.padEnd(20)} ${val.padEnd(12)} ${suffix}\n`);
       }
       process.stdout.write('\n');
-      process.stdout.write('  Valid toggleKey:        esc+esc, f12, ctrl+]\n');
+      process.stdout.write('  Valid toggleKey:        f12, ctrl+]\n');
       process.stdout.write('  Valid modifierKey:      ctrl, alt\n');
       process.stdout.write('  Valid gameWidthPercent: 20–80\n\n');
       break;
@@ -90,11 +92,21 @@ function handleConfigCommand(args: string[]): void {
           process.stderr.write(`splitgame config reset: unknown key "${key}". Valid: ${CONFIG_KEYS.join(', ')}\n`);
           process.exit(1);
         }
-        config.resetKey(key);
-        process.stdout.write(`${key} reset to ${config.get(key)}\n`);
+        try {
+          config.resetKey(key);
+          process.stdout.write(`${key} reset to ${config.get(key)}\n`);
+        } catch (e: any) {
+          process.stderr.write(`splitgame config reset: ${e.message}\n`);
+          process.exit(1);
+        }
       } else {
-        config.reset();
-        process.stdout.write('All settings reset to defaults.\n');
+        try {
+          config.reset();
+          process.stdout.write('All settings reset to defaults.\n');
+        } catch (e: any) {
+          process.stderr.write(`splitgame config reset: ${e.message}\n`);
+          process.exit(1);
+        }
       }
       break;
     }
@@ -126,7 +138,7 @@ function printHelp(): void {
   process.stdout.write('  Quick start:\n');
   process.stdout.write('    splitgame install       One-time setup: every new terminal auto-launches\n');
   process.stdout.write('                          inside splitgame.\n');
-  process.stdout.write('    Ctrl+]                Toggle the game panel during any session.\n\n');
+  process.stdout.write('    F12 (default)         Toggle the game panel (configurable via splitgame config).\n\n');
 }
 
 function main(): void {
@@ -182,7 +194,7 @@ function main(): void {
   }
 
   if (rawArgs[0] === 'mcp-setup') {
-    handleMcpSetup();
+    handleMcpSetup(rawArgs.includes('--force'));
     process.exit(0);
   }
 
@@ -202,9 +214,11 @@ function main(): void {
       i++;
     } else if (rawArgs[i] === '--list-games') {
       const games = getGameList();
+      process.stdout.write('\n  Available games:\n\n');
       for (const g of games) {
-        process.stdout.write(`  ${g.id.padEnd(14)} ${g.name}\n`);
+        process.stdout.write(`    ${g.id.padEnd(14)} ${g.name}\n`);
       }
+      process.stdout.write('\n');
       process.exit(0);
     } else {
       args.push(rawArgs[i]);
@@ -234,6 +248,8 @@ function main(): void {
   }
 
   const configManager = new ConfigManager();
+  const toggleLabel = configManager.get('toggleKey') === 'f12' ? 'F12' : 'Ctrl+]';
+  process.stderr.write(`splitgame: press ${toggleLabel} to play | splitgame --help for more\n`);
   const orchestrator = new Orchestrator({ command, args: commandArgs, gameId }, configManager);
   orchestrator.start();
 }

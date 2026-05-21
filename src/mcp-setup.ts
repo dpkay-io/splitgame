@@ -5,7 +5,7 @@ import * as os from 'os';
 export interface McpConfigResult {
   path: string;
   name: string;
-  status: 'configured' | 'skipped' | 'parse-error';
+  status: 'configured' | 'skipped' | 'parse-error' | 'exists';
 }
 
 export interface McpSetupResult {
@@ -14,7 +14,11 @@ export interface McpSetupResult {
   configs: McpConfigResult[];
 }
 
-export function setupMcp(baseDir: string): McpSetupResult {
+export interface McpSetupOptions {
+  force?: boolean;
+}
+
+export function setupMcp(baseDir: string, options?: McpSetupOptions): McpSetupResult {
   const mcpServerPath = path.resolve(baseDir, 'bin', 'mcp-server.js');
   const result: McpSetupResult = {
     mcpServerFound: fs.existsSync(mcpServerPath),
@@ -51,6 +55,10 @@ export function setupMcp(baseDir: string): McpSetupResult {
     }
 
     if (!data.mcpServers) data.mcpServers = {};
+    if (data.mcpServers['splitgame'] && !options?.force) {
+      result.configs.push({ ...target, status: 'exists' });
+      continue;
+    }
     data.mcpServers['splitgame'] = { command: 'node', args: [mcpServerPath] };
 
     try {

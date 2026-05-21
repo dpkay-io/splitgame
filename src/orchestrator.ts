@@ -35,6 +35,7 @@ export class Orchestrator {
   private inMenu = true;
   private currentGameId: string | null = null;
   private lastScoreSubmitted = false;
+  private celebrationEndTime = 0;
   private ipcServer: IpcServer;
   private turnWaiters: Array<(state: CompactGameState | null) => void> = [];
   private claudeOpponent = false;
@@ -71,6 +72,7 @@ export class Orchestrator {
       (key) => this.onGameInput(key),
       () => this.stateMachine.snapshot.inputFocus,
       (delta) => this.onScroll(delta),
+      () => !this.passthrough,
       this.configManager.get('toggleKey'),
       this.configManager.get('modifierKey'),
     );
@@ -105,7 +107,9 @@ export class Orchestrator {
     } else {
       this.passthrough = true;
     }
-    process.stdout.write(ansi.enableMouseMode());
+    if (!this.passthrough) {
+      process.stdout.write(ansi.enableMouseMode());
+    }
 
     if (!this.signalHandlersRegistered) {
       this.signalHandlersRegistered = true;
@@ -301,6 +305,7 @@ export class Orchestrator {
   private restartGame(): void {
     if (!this.currentGameId) return;
     this.escapePaused = false;
+    this.celebrationEndTime = 0;
     this.checkAndSubmitScore();
     this.gameEngine.stop();
     const game = createGame(this.currentGameId);
@@ -345,6 +350,7 @@ export class Orchestrator {
     this.inMenu = false;
     this.claudeOpponent = false;
     this.lastScoreSubmitted = false;
+    this.celebrationEndTime = 0;
 
     const geo = this.renderer.calculateGeometry();
     this.gameEngine.init(geo.rightWidth, geo.height - 1);
@@ -375,8 +381,11 @@ export class Orchestrator {
     if (this.inMenu || !this.currentGameId || this.lastScoreSubmitted) return;
     const state = this.gameEngine.getState();
     if (state.status === 'gameover' && state.score > 0) {
-      this.highScores.submit(this.currentGameId, state.score);
+      const isNewHigh = this.highScores.submit(this.currentGameId, state.score);
       this.lastScoreSubmitted = true;
+      if (isNewHigh) {
+        this.celebrationEndTime = Date.now() + 3000;
+      }
     }
   }
 
@@ -421,6 +430,7 @@ export class Orchestrator {
         }
         if (this.passthrough) {
           this.passthrough = false;
+          process.stdout.write(ansi.enableMouseMode());
           process.stdout.write(ansi.alternateScreen());
         }
         this.emulator.resize(geo.leftWidth, geo.height);
@@ -444,6 +454,7 @@ export class Orchestrator {
         this.emulator.resize(cols, rows);
         this.ptyManager.resize(cols, rows);
         if (!this.passthrough) {
+          process.stdout.write(ansi.disableMouseMode());
           process.stdout.write(ansi.mainScreen());
           this.passthrough = true;
         }
@@ -491,20 +502,22 @@ export class Orchestrator {
     const hiStr = hi > 0 ? ` Hi:${hi}` : '';
 
     if (gameState.status === 'gameover') {
+      if (Date.now() < this.celebrationEndTime) {
+        return ` ★ NEW HIGH SCORE! ★  ${gameState.score}`;
+      }
       return ` Esc/M:Menu R:New ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
     }
     if (gameState.status === 'paused') {
       if (this.escapePaused) {
         return ` Esc:Menu P:Resume ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
       }
-      return ` ${toggle}: Resume | ⏸  ${gameState.score}${hiStr}`;
+      return ` Focus: Terminal | ${toggle}: Resume | ⏸  ${gameState.score}${hiStr}`;
     }
     return ` Esc:Pause M:Menu ${toggle}:Hide ${mod}←→:Size | ${gameState.score}${hiStr}`;
   }
 
   private toggleKeyLabel(): string {
     const key = this.configManager.get('toggleKey');
-    if (key === 'esc+esc') return 'Esc+Esc';
     if (key === 'f12') return 'F12';
     return 'Ctrl+]';
   }

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-export type ToggleKey = 'esc+esc' | 'f12' | 'ctrl+]';
+export type ToggleKey = 'f12' | 'ctrl+]';
 export type ModifierKey = 'ctrl' | 'alt';
 
 export interface SplitGameConfig {
@@ -11,7 +11,7 @@ export interface SplitGameConfig {
   gameWidthPercent: number;
 }
 
-const VALID_TOGGLE_KEYS: ToggleKey[] = ['esc+esc', 'f12', 'ctrl+]'];
+const VALID_TOGGLE_KEYS: ToggleKey[] = ['f12', 'ctrl+]'];
 const VALID_MODIFIER_KEYS: ModifierKey[] = ['ctrl', 'alt'];
 const MIN_GAME_WIDTH = 20;
 const MAX_GAME_WIDTH = 80;
@@ -127,8 +127,8 @@ export class ConfigManager {
   private save(): void {
     try {
       fs.writeFileSync(this.filePath, JSON.stringify(this.config, null, 2), 'utf-8');
-    } catch {
-      // Silently fail
+    } catch (e: any) {
+      throw new Error(`Could not save to ${this.filePath}: ${e.message}`);
     }
   }
 

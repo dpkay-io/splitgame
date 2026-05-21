@@ -51,6 +51,7 @@ export class MinesweeperGame implements IGame {
   private _gameOver = false;
   private _won = false;
   private firstMove = true;
+  private elapsedMs = 0;
 
   init(width: number, height: number): void {
     this.panelWidth = width;
@@ -59,8 +60,10 @@ export class MinesweeperGame implements IGame {
     this.reset();
   }
 
-  tick(_deltaMs: number): void {
-    // Turn-based — nothing to do.
+  tick(deltaMs: number): void {
+    if (!this.firstMove && !this._gameOver && !this._paused) {
+      this.elapsedMs += deltaMs;
+    }
   }
 
   handleInput(key: string): void {
@@ -169,12 +172,17 @@ export class MinesweeperGame implements IGame {
       }
     }
 
-    let statusMessage = `Mines: ${this.mineCount} | Flags: ${this.flagCount}`;
+    const totalSec = Math.floor(this.elapsedMs / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    let statusMessage = `Mines: ${this.mineCount} | Flags: ${this.flagCount} | ${timeStr}`;
     let status: 'playing' | 'paused' | 'gameover' = 'playing';
 
     if (this._gameOver) {
       status = 'gameover';
-      statusMessage = this._won ? 'YOU WIN!' : 'BOOM! Game Over';
+      statusMessage = this._won ? `YOU WIN! ${timeStr}` : `BOOM! Game Over ${timeStr}`;
     } else if (this._paused) {
       status = 'paused';
       statusMessage = 'PAUSED - Ctrl+Space to resume';
@@ -210,6 +218,7 @@ export class MinesweeperGame implements IGame {
     this._won = false;
     this._paused = false;
     this.firstMove = true;
+    this.elapsedMs = 0;
     this.revealedCount = 0;
     this.flagCount = 0;
     this.cursorX = Math.floor(this.cols / 2);

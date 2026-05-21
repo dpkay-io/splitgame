@@ -143,12 +143,16 @@ export class Renderer {
 
   private renderChildRow(cells: ScreenCell[], width: number, row: number): string {
     let out = ansi.moveTo(row + 1, 1);
+    let prevAttrs = '';
     out += ansi.resetAttributes();
     for (let col = 0; col < width; col++) {
       const cell = cells[col] || this.emptyCell();
       if (cell.width === 0) continue;
-      out += ansi.resetAttributes();
-      out += this.buildAttrs(cell);
+      const attrs = this.buildAttrs(cell);
+      if (attrs !== prevAttrs) {
+        out += ansi.resetAttributes() + attrs;
+        prevAttrs = attrs;
+      }
       out += cell.char;
     }
     return out;
@@ -157,11 +161,16 @@ export class Renderer {
   private renderGameRow(cells: GameCell[] | undefined, width: number, borderCol: number, row: number): string {
     let out = ansi.moveTo(row + 1, borderCol + 2);
     out += ansi.resetAttributes();
+    let prevFg = '';
+    let prevBg = '';
     for (let col = 0; col < width; col++) {
       const cell = cells?.[col] || { char: ' ', fg: { mode: 'default' as const, value: 0 }, bg: { mode: 'default' as const, value: 0 } };
-      out += ansi.resetAttributes();
-      out += ansi.fgColor(cell.fg);
-      out += ansi.bgColor(cell.bg);
+      const fg = ansi.fgColor(cell.fg);
+      const bg = ansi.bgColor(cell.bg);
+      if (fg !== prevFg || bg !== prevBg) {
+        if (fg !== prevFg) { out += fg; prevFg = fg; }
+        if (bg !== prevBg) { out += bg; prevBg = bg; }
+      }
       out += cell.char;
     }
     return out;

@@ -21,7 +21,7 @@ try {
     }
   }
 } catch (e) {
-  // Silently ignore — never block npm install
+  process.stderr.write('splitgame: terminal setup failed (' + (e.message || e) + '). Run "splitgame install" manually.\n');
 }
 
 try {
@@ -33,5 +33,5 @@ try {
     process.stdout.write('Restart Claude Code to enable game tools.\n\n');
   }
 } catch (e) {
-  // Silently ignore — user can run `splitgame mcp-setup` manually
+  process.stderr.write('splitgame: MCP setup failed (' + (e.message || e) + '). Run "splitgame mcp-setup" manually.\n');
 }

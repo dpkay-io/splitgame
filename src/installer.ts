@@ -149,7 +149,6 @@ export class TerminalInstaller {
         installedCommandline: wrappedCmd,
       };
 
-      profile.commandline = wrappedCmd;
       patched.push(patch);
     }
 
@@ -157,7 +156,15 @@ export class TerminalInstaller {
       throw new Error('No eligible profiles found to patch. All profiles were skipped.');
     }
 
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4), 'utf-8');
+    let patchedContent = rawContent;
+    for (const patch of patched) {
+      if (patch.originalCommandline !== null) {
+        patchedContent = this.replaceCommandlineInProfile(patchedContent, patch.guid, patch.installedCommandline);
+      } else {
+        patchedContent = this.insertCommandlineInProfile(patchedContent, patch.guid, patch.installedCommandline);
+      }
+    }
+    fs.writeFileSync(settingsPath, patchedContent, 'utf-8');
 
     const manifest: InstallManifest = {
       version: 1,
@@ -187,23 +194,22 @@ export class TerminalInstaller {
       throw new Error(`Could not read settings file: ${settingsPath}`);
     }
 
-    const settings: WTSettings = parseJsonc(rawContent);
-
     const restored: Array<{ name: string; guid: string }> = [];
 
+    let patchedContent = rawContent;
     for (const patch of manifest.profiles) {
-      const profile = settings.profiles.list.find(p => p.guid === patch.guid);
-      if (!profile) continue;
+      const bounds = this.findProfileBounds(patchedContent, patch.guid);
+      if (bounds.start === -1) continue;
 
       if (patch.originalCommandline === null) {
-        delete profile.commandline;
+        patchedContent = this.removeCommandlineFromProfile(patchedContent, patch.guid);
       } else {
-        profile.commandline = patch.originalCommandline;
+        patchedContent = this.replaceCommandlineInProfile(patchedContent, patch.guid, patch.originalCommandline);
       }
       restored.push({ name: patch.name, guid: patch.guid });
     }
 
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4), 'utf-8');
+    fs.writeFileSync(settingsPath, patchedContent, 'utf-8');
 
     try {
       fs.unlinkSync(this.manifestPath);
@@ -345,6 +351,110 @@ export class TerminalInstaller {
     const lower = cmd.toLowerCase().trim();
     return lower === 'powershell.exe' || lower === 'pwsh.exe'
       || lower === 'powershell' || lower === 'pwsh';
+  }
+
+  private findProfileBounds(rawText: string, guid: string): { start: number; end: number } {
+    const guidStr = `"${guid}"`;
+    const guidIdx = rawText.indexOf(guidStr);
+    if (guidIdx === -1) return { start: -1, end: -1 };
+
+    let start = guidIdx;
+    while (start > 0 && rawText[start] !== '{') start--;
+
+    let depth = 1;
+    let pos = start + 1;
+    while (pos < rawText.length && depth > 0) {
+      const ch = rawText[pos];
+      if (ch === '"') {
+        pos++;
+        while (pos < rawText.length) {
+          if (rawText[pos] === '\\') { pos += 2; continue; }
+          if (rawText[pos] === '"') break;
+          pos++;
+        }
+      } else if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0) return { start, end: pos };
+      }
+      pos++;
+    }
+
+    return { start: -1, end: -1 };
+  }
+
+  private replaceCommandlineInProfile(rawText: string, guid: string, newValue: string): string {
+    const bounds = this.findProfileBounds(rawText, guid);
+    if (bounds.start === -1) return rawText;
+
+    const profileSlice = rawText.substring(bounds.start, bounds.end + 1);
+    const regex = /("commandline"\s*:\s*)"(?:[^"\\]|\\.)*"/;
+    const match = regex.exec(profileSlice);
+    if (!match) return rawText;
+
+    const keyEnd = bounds.start + match.index + match[1].length;
+    const valueEnd = bounds.start + match.index + match[0].length;
+    return rawText.substring(0, keyEnd) + JSON.stringify(newValue) + rawText.substring(valueEnd);
+  }
+
+  private insertCommandlineInProfile(rawText: string, guid: string, value: string): string {
+    const bounds = this.findProfileBounds(rawText, guid);
+    if (bounds.start === -1) return rawText;
+
+    const profileSlice = rawText.substring(bounds.start, bounds.end + 1);
+    const guidPattern = /"guid"/;
+    const guidMatch = guidPattern.exec(profileSlice);
+    let indent = '            ';
+    if (guidMatch) {
+      const guidAbsPos = bounds.start + guidMatch.index;
+      const lineStart = rawText.lastIndexOf('\n', guidAbsPos) + 1;
+      const leadingWs = rawText.substring(lineStart, guidAbsPos).match(/^(\s*)/);
+      if (leadingWs) indent = leadingWs[1];
+    }
+
+    let lastContentPos = bounds.end - 1;
+    while (lastContentPos > bounds.start && /\s/.test(rawText[lastContentPos])) lastContentPos--;
+
+    const needsComma = rawText[lastContentPos] !== ',';
+    const comma = needsComma ? ',' : '';
+    const insertion = `${comma}\n${indent}"commandline": ${JSON.stringify(value)}`;
+
+    return rawText.substring(0, lastContentPos + 1) + insertion + rawText.substring(lastContentPos + 1);
+  }
+
+  private removeCommandlineFromProfile(rawText: string, guid: string): string {
+    const bounds = this.findProfileBounds(rawText, guid);
+    if (bounds.start === -1) return rawText;
+
+    const profileSlice = rawText.substring(bounds.start, bounds.end + 1);
+    const regex = /"commandline"\s*:\s*"(?:[^"\\]|\\.)*"/;
+    const match = regex.exec(profileSlice);
+    if (!match) return rawText;
+
+    const matchAbsStart = bounds.start + match.index;
+    const matchAbsEnd = matchAbsStart + match[0].length;
+
+    let lineStart = matchAbsStart;
+    while (lineStart > bounds.start && rawText[lineStart - 1] !== '\n') lineStart--;
+
+    let lineEnd = matchAbsEnd;
+    while (lineEnd <= bounds.end && rawText[lineEnd] !== '\n' && /[\s,]/.test(rawText[lineEnd])) lineEnd++;
+    if (lineEnd <= bounds.end && rawText[lineEnd] === '\n') lineEnd++;
+
+    let result = rawText.substring(0, lineStart) + rawText.substring(lineEnd);
+
+    const beforeRemoval = result.substring(0, lineStart);
+    const trailingCommaMatch = beforeRemoval.match(/,(\s*)$/);
+    if (trailingCommaMatch) {
+      const afterRemoval = result.substring(lineStart);
+      const nextNonWs = afterRemoval.match(/^\s*(.)/);
+      if (nextNonWs && nextNonWs[1] === '}') {
+        result = beforeRemoval.replace(/,(\s*)$/, '$1') + afterRemoval;
+      }
+    }
+
+    return result;
   }
 
   private ensureSplitgameInPath(): void {

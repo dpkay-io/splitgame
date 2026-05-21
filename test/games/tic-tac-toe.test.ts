@@ -23,12 +23,19 @@ describe('TicTacToeGame', () => {
     expect(game.isPaused()).toBe(false);
   });
 
-  it('status message shows turn info and record', () => {
+  it('status message shows difficulty selector before first move', () => {
     const state = game.getState();
-    expect(state.statusMessage).toContain('Your turn');
+    expect(state.statusMessage).toContain('Difficulty');
+    expect(state.statusMessage).toContain('[medium]');
     expect(state.statusMessage).toContain('W:');
     expect(state.statusMessage).toContain('L:');
     expect(state.statusMessage).toContain('D:');
+  });
+
+  it('status message shows turn info after first move', () => {
+    game.handleInput('space');
+    const state = game.getState();
+    expect(state.statusMessage).toContain('Your turn');
   });
 
   it('cursor starts at center (1,1)', () => {

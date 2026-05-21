@@ -6,7 +6,7 @@
     }
   ],
   "settings": {
-    "window.title": "cli-game ${separator} ${activeRepositoryBranchName} ${separator} ${activeEditorShort}",
+    "window.title": "splitgame ${separator} ${activeRepositoryBranchName} ${separator} ${activeEditorShort}",
     "workbench.colorCustomizations": {
       "titleBar.activeBackground": "#db2777",
       "titleBar.inactiveBackground": "#db2777",

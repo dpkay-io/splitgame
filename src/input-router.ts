@@ -4,10 +4,6 @@ import { ToggleKey, ModifierKey } from './config';
 type InputCallback = (data: Buffer) => void;
 
 export class InputRouter {
-  private lastEscapeTime: number = 0;
-  private escapeTimer: NodeJS.Timeout | null = null;
-  private readonly DOUBLE_TAP_WINDOW_MS = 300;
-  private readonly ESC_FORWARD_DELAY_MS = 50;
   private toggleKey: ToggleKey;
   private modifierKey: ModifierKey;
 
@@ -17,6 +13,7 @@ export class InputRouter {
     private onGameInput: (key: string) => void,
     private getFocus: () => InputFocus,
     private onScroll: (delta: number) => void,
+    private isMouseIntercepted: () => boolean,
     toggleKey: ToggleKey = 'ctrl+]',
     modifierKey: ModifierKey = 'ctrl',
   ) {
@@ -26,11 +23,6 @@ export class InputRouter {
 
   setToggleKey(key: ToggleKey): void {
     this.toggleKey = key;
-    if (this.escapeTimer) {
-      clearTimeout(this.escapeTimer);
-      this.escapeTimer = null;
-    }
-    this.lastEscapeTime = 0;
   }
 
   setModifierKey(key: ModifierKey): void {
@@ -38,16 +30,13 @@ export class InputRouter {
   }
 
   start(): void {
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(true);
-    }
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
     process.stdin.resume();
     process.stdin.on('data', this.handleData);
   }
 
   stop(): void {
     process.stdin.removeListener('data', this.handleData);
-    if (this.escapeTimer) clearTimeout(this.escapeTimer);
     try {
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
@@ -64,47 +53,7 @@ export class InputRouter {
       return;
     }
 
-    if (this.toggleKey === 'esc+esc') {
-      if (data.length === 2 && data[0] === 0x1b && data[1] === 0x1b) {
-        this.lastEscapeTime = 0;
-        if (this.escapeTimer) {
-          clearTimeout(this.escapeTimer);
-          this.escapeTimer = null;
-        }
-        this.onToggle();
-        return;
-      }
-
-      if (data.length === 1 && data[0] === 0x1b) {
-        const now = Date.now();
-        if (now - this.lastEscapeTime < this.DOUBLE_TAP_WINDOW_MS) {
-          this.lastEscapeTime = 0;
-          if (this.escapeTimer) {
-            clearTimeout(this.escapeTimer);
-            this.escapeTimer = null;
-          }
-          this.onToggle();
-          return;
-        }
-        this.lastEscapeTime = now;
-        this.escapeTimer = setTimeout(() => {
-          this.escapeTimer = null;
-          this.forwardInput(Buffer.from([0x1b]));
-        }, this.ESC_FORWARD_DELAY_MS);
-        return;
-      }
-
-      if (this.escapeTimer) {
-        clearTimeout(this.escapeTimer);
-        this.escapeTimer = null;
-        this.lastEscapeTime = 0;
-        const combined = Buffer.concat([Buffer.from([0x1b]), data]);
-        this.forwardInput(combined);
-        return;
-      }
-    }
-
-    if (this.consumeMouseEvent(data)) return;
+    if (this.isMouseIntercepted() && this.consumeMouseEvent(data)) return;
 
     this.forwardInput(data);
   };

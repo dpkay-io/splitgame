@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 splitgame — a Node.js CLI that wraps any command in a split-terminal with a game panel. **Primary target: Claude Code CLI** (`splitgame claude`), but works with any command. The child process runs on the left; the game renders on the right. Toggle key (default: F12) shows/hides the game panel. Starts in minimized mode (fullscreen child terminal). Running `splitgame` with no arguments prints usage help and exits.
 
-**Toggle key choice:** Default is `f12` because it doesn't conflict with Claude Code CLI keybindings. `esc+esc` and `ctrl+]` are also available. All three are safe — none conflict with Claude Code CLI or standard readline shortcuts.
+**Toggle key choice:** Default is `f12` because it doesn't conflict with Claude Code CLI keybindings. `ctrl+]` is also available. Both are safe — neither conflicts with Claude Code CLI or standard readline shortcuts.
 
 **Available games:** Snake, 2048, Tetris, Tic-Tac-Toe (vs AI or vs Claude), Breakout, Minesweeper, Flappy Bird.
 
@@ -59,17 +59,19 @@ Both platforms: backs up the original to `~/.splitgame/backups/`, writes an inst
 
 **Screen buffer strategy:** splitgame only uses the alternate screen buffer when the game panel is visible (GAME_ACTIVE or GAME_PAUSED). When the game is minimized (default state), it stays on the main screen buffer with raw PTY passthrough so terminal scrollback works normally. Toggling the game panel switches between main ↔ alternate screen (`?1049h`/`?1049l`).
 
-**Scroll handling:** SGR mouse mode (`?1000h`/`?1006h`) is enabled to intercept trackpad/mouse wheel events. Without this, ConPTY converts scroll into arrow key sequences that reach the child process. Wheel events are parsed in `InputRouter` and routed to `onScroll` in the orchestrator, which scrolls the xterm-headless viewport via `scrollLines()`/`scrollToBottom()`. When scrolled back, passthrough pauses and the renderer takes over to show scrollback content. Any keyboard input exits scrollback mode and resumes passthrough.
+**Mouse mode strategy:** SGR mouse mode (`?1000h`/`?1006h`) is only enabled when the game panel is visible (GAME_ACTIVE or GAME_PAUSED). When minimized/passthrough, mouse mode is disabled so the terminal retains full native behavior: text selection, copy/paste, right-click context menus, URL clicking, and native scrollback all work normally. Mouse events are only intercepted by `InputRouter` when mouse mode is active (`isMouseIntercepted` callback). This also means child apps that enable their own mouse mode (vim, htop) receive mouse events correctly in minimized mode.
+
+**Scroll handling:** When the game panel is visible, SGR mouse wheel events are parsed in `InputRouter` and routed to `onScroll` in the orchestrator for scrolling the child panel's xterm-headless viewport. When minimized, the terminal's native scrollback handles scrolling directly (since we're on the main screen buffer with direct passthrough).
 
 **Orchestrator** (`src/orchestrator.ts`) is the central coordinator. It owns all components and wires them together. It manages the render loop (33ms interval), signal handling, resize events, screen lifecycle, game selection, and high score submission. Accepts `OrchestratorOptions` with optional `gameId` to skip the menu.
 
 **StateMachine** (`src/state.ts`) governs app state via a transition table. States: `GAME_MINIMIZED` (default) → `GAME_ACTIVE` ↔ `GAME_PAUSED` → `EXITING`. Input focus (`CHILD` vs `GAME`) is derived from state — only `GAME_ACTIVE` routes input to the game. `GAME_PAUSED` keeps the game panel visible but routes input to the child, allowing CLI interaction while paused. Toggle key resumes the game.
 
-**ConfigManager** (`src/config.ts`) persists user settings to `~/.splitgame/config.json`. Configurable: `toggleKey` (f12, esc+esc, ctrl+]), `modifierKey` (ctrl, alt), `gameWidthPercent` (20–80). Default toggle is `f12`. Silently falls back to defaults on missing/corrupt file.
+**ConfigManager** (`src/config.ts`) persists user settings to `~/.splitgame/config.json`. Configurable: `toggleKey` (f12, ctrl+]), `modifierKey` (ctrl, alt), `gameWidthPercent` (20–80). Default toggle is `f12`. Silently falls back to defaults on missing/corrupt file.
 
 **Install system:** `install-command.ts` dispatches by platform. On Windows, `installer.ts` (`TerminalInstaller`) patches Windows Terminal's `settings.json` profile commandlines. On Linux/macOS, `shell-installer.ts` (`ShellProfileInstaller`) appends a guarded auto-launch snippet to the user's shell profile. Both write a manifest to `~/.splitgame/install-manifest.json` and create backups. `jsonc.ts` parses JSONC (Windows Terminal settings contain comments).
 
-**InputRouter** (`src/input-router.ts`) handles raw stdin. Toggle key is configurable — supports F12 (default), double-tap Escape (300ms window), or Ctrl+]. When focus is CHILD, raw bytes go to the PTY. When focus is GAME, bytes are parsed into named keys (arrows, WASD, enter, escape, flag, next-game, resize-left, resize-right, tab, etc.). Standalone Esc (single 0x1b byte) is parsed as `'escape'`. Modifier+arrow keys emit resize commands.
+**InputRouter** (`src/input-router.ts`) handles raw stdin. Toggle key is configurable — supports F12 (default) or Ctrl+]. When focus is CHILD, raw bytes go to the PTY. When focus is GAME, bytes are parsed into named keys (arrows, WASD, enter, escape, flag, next-game, resize-left, resize-right, tab, etc.). Standalone Esc (single 0x1b byte) is parsed as `'escape'`. Modifier+arrow keys emit resize commands.
 
 **Renderer** (`src/renderer.ts`) has two modes: `renderFullscreen()` for minimized state (passes through terminal emulator buffer) and `renderSplit()` for game-visible states (left panel = child, vertical border, right panel = game grid, bottom status bar). Game panel width is configurable (20–80% via `gameWidthPercent`). Status bar shows context-aware action hints (keys vary by playing/paused/gameover state). Uses dirty-checking to skip unchanged rows.
 

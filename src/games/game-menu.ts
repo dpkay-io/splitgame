@@ -34,6 +34,7 @@ export class GameMenu implements IGame {
   private currentTab = 0;
   private configCursor = 0;
   private claudeConnected = false;
+  private externalMovesCache: Map<string, boolean> = new Map();
 
   constructor(
     private highScores?: HighScoreManager,
@@ -51,6 +52,7 @@ export class GameMenu implements IGame {
 
   setClaudeConnected(connected: boolean): void {
     this.claudeConnected = connected;
+    this.refreshExternalMovesCache();
   }
 
   init(width: number, height: number): void {
@@ -59,6 +61,15 @@ export class GameMenu implements IGame {
     this.games = getGameList();
     this.cursor = 0;
     this._selected = null;
+    this.refreshExternalMovesCache();
+  }
+
+  private refreshExternalMovesCache(): void {
+    this.externalMovesCache.clear();
+    for (const game of this.games) {
+      const instance = createGame(game.id);
+      this.externalMovesCache.set(game.id, !!instance.supportsExternalMoves);
+    }
   }
 
   tick(_deltaMs: number): void {}
@@ -213,12 +224,9 @@ export class GameMenu implements IGame {
       const col = Math.max(0, Math.floor((this.width - text.length) / 2));
       this.writeTextAt(grid, row, col, text, fg, bg);
 
-      if (this.claudeConnected) {
-        const instance = createGame(this.games[i].id);
-        if (instance.supportsExternalMoves) {
-          const tag = ' vs Claude';
-          this.writeTextAt(grid, row, col + text.length, tag, MAGENTA, bg);
-        }
+      if (this.claudeConnected && this.externalMovesCache.get(this.games[i].id)) {
+        const tag = ' vs Claude';
+        this.writeTextAt(grid, row, col + text.length, tag, MAGENTA, bg);
       }
     }
   }

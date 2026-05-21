@@ -17,8 +17,26 @@ const TILE_COLORS: Record<number, ANSIColor> = {
   2048: { mode: 'palette', value: 10 },
 };
 
+const TILE_BG_COLORS: Record<number, ANSIColor> = {
+  2:    { mode: 'palette', value: 235 },
+  4:    { mode: 'palette', value: 235 },
+  8:    { mode: 'palette', value: 52 },
+  16:   { mode: 'palette', value: 88 },
+  32:   { mode: 'palette', value: 53 },
+  64:   { mode: 'palette', value: 88 },
+  128:  { mode: 'palette', value: 58 },
+  256:  { mode: 'palette', value: 22 },
+  512:  { mode: 'palette', value: 23 },
+  1024: { mode: 'palette', value: 52 },
+  2048: { mode: 'palette', value: 22 },
+};
+
 function tileColor(value: number): ANSIColor {
   return TILE_COLORS[value] ?? { mode: 'palette', value: 13 };
+}
+
+function tileBgColor(value: number): ANSIColor {
+  return TILE_BG_COLORS[value] ?? { mode: 'palette', value: 53 };
 }
 
 export class Game2048 implements IGame {
@@ -30,6 +48,7 @@ export class Game2048 implements IGame {
   private score = 0;
   private _paused = false;
   private _gameOver = false;
+  private won = false;
 
   init(width: number, height: number): void {
     this.width = Math.max(1, width);
@@ -83,6 +102,7 @@ export class Game2048 implements IGame {
     let statusMessage: string | undefined;
     if (this._gameOver) statusMessage = 'GAME OVER - Press SPACE or R';
     else if (this._paused) statusMessage = 'PAUSED - Ctrl+Space to resume';
+    else if (this.won) statusMessage = 'YOU WIN! Keep going or R:Reset';
 
     return {
       grid,
@@ -105,6 +125,7 @@ export class Game2048 implements IGame {
   reset(): void {
     this._gameOver = false;
     this._paused = false;
+    this.won = false;
     this.score = 0;
     this.board = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
     this.spawnTile();
@@ -122,6 +143,7 @@ export class Game2048 implements IGame {
       case 'down':  this.slideDown(); break;
     }
     if (!this.boardsEqual(before, this.board)) {
+      if (!this.won) this.checkWin();
       this.spawnTile();
       if (!this.hasValidMoves()) this._gameOver = true;
     }
@@ -203,6 +225,14 @@ export class Game2048 implements IGame {
     return this.board.map(row => row.slice());
   }
 
+  private checkWin(): void {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (this.board[r][c] >= 2048) { this.won = true; return; }
+      }
+    }
+  }
+
   private boardsEqual(a: number[][], b: number[][]): boolean {
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
@@ -244,8 +274,8 @@ export class Game2048 implements IGame {
     value: number,
   ): void {
     const fg = value === 0 ? DARK_GRAY : tileColor(value);
+    const bg = value === 0 ? DEFAULT : tileBgColor(value);
     const label = value === 0 ? '·' : String(value);
-    // Center label in the middle row of the tile.
     const midRow = y + Math.floor(h / 2);
     const labelStart = x + Math.max(0, Math.floor((w - label.length) / 2));
 
@@ -254,14 +284,14 @@ export class Game2048 implements IGame {
         const gr = y + dy;
         const gc = x + dx;
         if (gr < 0 || gr >= this.height || gc < 0 || gc >= this.width) continue;
-        grid[gr][gc] = { char: ' ', fg: DEFAULT, bg: DEFAULT };
+        grid[gr][gc] = { char: ' ', fg: DEFAULT, bg };
       }
     }
 
     for (let i = 0; i < label.length; i++) {
       const gc = labelStart + i;
       if (midRow >= 0 && midRow < this.height && gc >= 0 && gc < this.width) {
-        grid[midRow][gc] = { char: label[i], fg, bg: DEFAULT };
+        grid[midRow][gc] = { char: label[i], fg, bg };
       }
     }
   }
