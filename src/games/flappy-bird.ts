@@ -171,7 +171,7 @@ export class FlappyBirdGame implements IGame {
     this.birdY = Math.floor((this.height - 1) / 2);
     this.birdVelocity = 0;
     this.pipes = [];
-    this.distanceSinceLastPipe = PIPE_SPACING; // spawn first pipe soon
+    this.distanceSinceLastPipe = 0; // grace period: first pipe spawns after full PIPE_SPACING distance
   }
 
   private flap(): void {

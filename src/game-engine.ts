@@ -13,9 +13,9 @@ export class GameEngine {
 
   start(): void {
     if (this.intervalHandle) return;
-    this.lastTick = Date.now();
+    this.lastTick = performance.now();
     this.intervalHandle = setInterval(() => {
-      const now = Date.now();
+      const now = performance.now();
       const delta = now - this.lastTick;
       this.lastTick = now;
       if (!this.game.isPaused() && !this.game.isGameOver()) {

@@ -9,20 +9,24 @@ export interface SplitGameConfig {
   toggleKey: ToggleKey;
   modifierKey: ModifierKey;
   gameWidthPercent: number;
+  scrollbackLines: number;
 }
 
 const VALID_TOGGLE_KEYS: ToggleKey[] = ['f12', 'ctrl+]'];
 const VALID_MODIFIER_KEYS: ModifierKey[] = ['ctrl', 'alt'];
 const MIN_GAME_WIDTH = 20;
 const MAX_GAME_WIDTH = 80;
+const MIN_SCROLLBACK = 100;
+const MAX_SCROLLBACK = 100000;
 
 const DEFAULTS: SplitGameConfig = {
   toggleKey: 'f12',
   modifierKey: 'ctrl',
   gameWidthPercent: 50,
+  scrollbackLines: 1000,
 };
 
-export const CONFIG_KEYS = ['toggleKey', 'modifierKey', 'gameWidthPercent'] as const;
+export const CONFIG_KEYS = ['toggleKey', 'modifierKey', 'gameWidthPercent', 'scrollbackLines'] as const;
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
 
 export class ConfigManager {
@@ -80,6 +84,14 @@ export class ConfigManager {
     return MAX_GAME_WIDTH;
   }
 
+  static minScrollback(): number {
+    return MIN_SCROLLBACK;
+  }
+
+  static maxScrollback(): number {
+    return MAX_SCROLLBACK;
+  }
+
   validate<K extends keyof SplitGameConfig>(key: K, value: SplitGameConfig[K]): void {
     switch (key) {
       case 'toggleKey':
@@ -99,6 +111,13 @@ export class ConfigManager {
         }
         break;
       }
+      case 'scrollbackLines': {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < MIN_SCROLLBACK || n > MAX_SCROLLBACK) {
+          throw new Error(`Invalid scrollbackLines "${value}". Must be integer ${MIN_SCROLLBACK}–${MAX_SCROLLBACK}`);
+        }
+        break;
+      }
       default:
         throw new Error(`Unknown config key: ${String(key)}`);
     }
@@ -112,6 +131,7 @@ export class ConfigManager {
         toggleKey: VALID_TOGGLE_KEYS.includes(parsed.toggleKey) ? parsed.toggleKey : DEFAULTS.toggleKey,
         modifierKey: VALID_MODIFIER_KEYS.includes(parsed.modifierKey) ? parsed.modifierKey : DEFAULTS.modifierKey,
         gameWidthPercent: this.clampWidth(parsed.gameWidthPercent),
+        scrollbackLines: this.clampScrollback(parsed.scrollbackLines),
       };
     } catch {
       return { ...DEFAULTS };
@@ -122,6 +142,12 @@ export class ConfigManager {
     const n = Number(val);
     if (!Number.isInteger(n) || isNaN(n)) return DEFAULTS.gameWidthPercent;
     return Math.max(MIN_GAME_WIDTH, Math.min(MAX_GAME_WIDTH, n));
+  }
+
+  private clampScrollback(val: unknown): number {
+    const n = Number(val);
+    if (!Number.isInteger(n) || isNaN(n)) return DEFAULTS.scrollbackLines;
+    return Math.max(MIN_SCROLLBACK, Math.min(MAX_SCROLLBACK, n));
   }
 
   private save(): void {

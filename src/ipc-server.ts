@@ -64,6 +64,7 @@ export class IpcServer {
 
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.cleanStalePortFiles();
       this.authToken = crypto.randomBytes(16).toString('hex');
       this.server = net.createServer((socket) => this.handleConnection(socket));
       this.server.on('error', reject);
@@ -78,6 +79,37 @@ export class IpcServer {
         resolve();
       });
     });
+  }
+
+  private cleanStalePortFiles(): void {
+    const dir = path.join(os.homedir(), '.splitgame');
+    if (!fs.existsSync(dir)) return;
+
+    let files: string[];
+    try {
+      files = fs.readdirSync(dir).filter(f => f.startsWith('ipc-port-'));
+    } catch {
+      return;
+    }
+
+    const myFile = path.basename(this.portFile);
+    for (const file of files) {
+      if (file === myFile) continue;
+      const match = file.match(/^ipc-port-(\d+)$/);
+      if (!match) {
+        try { fs.unlinkSync(path.join(dir, file)); } catch {}
+        continue;
+      }
+      const pid = parseInt(match[1], 10);
+      let alive = false;
+      try {
+        process.kill(pid, 0);
+        alive = true;
+      } catch {}
+      if (!alive) {
+        try { fs.unlinkSync(path.join(dir, file)); } catch {}
+      }
+    }
   }
 
   stop(): void {

@@ -9,6 +9,7 @@ import * as os from 'os';
 const CONNECT_RETRIES = 3;
 const CONNECT_DELAY_MS = 500;
 const IPC_TIMEOUT_MS = 10000;
+const MAX_IPC_BUFFER_SIZE = 1024 * 1024; // 1 MB
 
 let ipcSocket: net.Socket | null = null;
 let requestId = 0;
@@ -54,6 +55,15 @@ function connectIpc(): Promise<net.Socket> {
 
     socket.on('data', (data) => {
       ipcBuffer += data.toString();
+      if (ipcBuffer.length > MAX_IPC_BUFFER_SIZE) {
+        process.stderr.write('splitgame MCP: IPC buffer exceeded 1MB limit, clearing\n');
+        ipcBuffer = '';
+        for (const p of pending.values()) {
+          p.reject(new Error('IPC buffer overflow'));
+        }
+        pending.clear();
+        return;
+      }
       let idx: number;
       while ((idx = ipcBuffer.indexOf('\n')) !== -1) {
         const line = ipcBuffer.slice(0, idx).trim();
@@ -169,7 +179,7 @@ IMPORTANT: Do NOT simulate or describe a game in text. Use the MCP tools to inte
 
   server.tool(
     'make_move',
-    'Make a move in the current game. For tic-tac-toe: "row,col" (0-indexed), e.g. "1,1" for center. For 2048: "up","down","left","right". For minesweeper: "reveal:x,y" or "flag:x,y".',
+    'Make a move in the current game. Only works for games that support external moves (marked [vs Claude] in get_game_info). For tic-tac-toe: "row,col" (0-indexed), e.g. "1,1" for center. Call get_game_state to see valid moves.',
     { move: z.string().describe('The move to make') },
     async ({ move }) => {
       try {

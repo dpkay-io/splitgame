@@ -230,15 +230,48 @@ export class TicTacToeGame implements IGame {
     const empty = this.board.map((v, i) => v === null ? i : -1).filter(i => i >= 0);
     if (empty.length === 0) return;
 
-    const useRandom =
-      (this.difficulty === 'easy' && Math.random() < 0.5) ||
-      (this.difficulty === 'medium' && Math.random() < 0.2);
+    if (this.difficulty === 'easy') {
+      this.aiMoveEasy(empty);
+    } else if (this.difficulty === 'medium') {
+      this.aiMoveMedium(empty);
+    } else {
+      this.aiMoveHard(empty);
+    }
+  }
 
-    if (useRandom) {
-      this.board[empty[Math.floor(Math.random() * empty.length)]] = 'O';
+  private aiMoveEasy(empty: number[]): void {
+    // Check if AI can win immediately — always take a win
+    const winIdx = this.findWinningMove('O', empty);
+    if (winIdx !== null) {
+      this.board[winIdx] = 'O';
       return;
     }
+    // Otherwise play randomly — no blocking, no strategy
+    this.board[empty[Math.floor(Math.random() * empty.length)]] = 'O';
+  }
 
+  private aiMoveMedium(empty: number[]): void {
+    // Always take a win
+    const winIdx = this.findWinningMove('O', empty);
+    if (winIdx !== null) {
+      this.board[winIdx] = 'O';
+      return;
+    }
+    // Always block player's win
+    const blockIdx = this.findWinningMove('X', empty);
+    if (blockIdx !== null) {
+      this.board[blockIdx] = 'O';
+      return;
+    }
+    // 50% chance of optimal play, 50% random
+    if (Math.random() < 0.5) {
+      this.aiMoveHard(empty);
+    } else {
+      this.board[empty[Math.floor(Math.random() * empty.length)]] = 'O';
+    }
+  }
+
+  private aiMoveHard(empty: number[]): void {
     // First-move heuristic: center > corner
     if (empty.length === 8) {
       if (this.board[4] === null) {
@@ -261,6 +294,16 @@ export class TicTacToeGame implements IGame {
       }
     }
     this.board[bestIdx] = 'O';
+  }
+
+  private findWinningMove(mark: Mark, empty: number[]): number | null {
+    for (const idx of empty) {
+      this.board[idx] = mark;
+      const winner = this.checkWinner();
+      this.board[idx] = null;
+      if (winner === mark) return idx;
+    }
+    return null;
   }
 
   private minimax(isAI: boolean): number {

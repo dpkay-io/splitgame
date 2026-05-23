@@ -124,6 +124,7 @@ export class TerminalInstaller {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(backupDir, `settings.${timestamp}.json`);
     fs.writeFileSync(backupPath, rawContent, 'utf-8');
+    this.cleanOldBackups(backupDir, 5);
 
     const patched: ProfilePatch[] = [];
     const skipped: Array<{ name: string; reason: string }> = [];
@@ -458,6 +459,15 @@ export class TerminalInstaller {
   }
 
   private ensureSplitgameInPath(): void {
+    // During npm link / npm install, the binary may not be on PATH yet.
+    // npm sets npm_lifecycle_event during install lifecycle hooks (preinstall,
+    // install, postinstall), so skip the PATH check in those contexts —
+    // the shim will be created by npm after the lifecycle completes.
+    const lifecycleEvent = process.env.npm_lifecycle_event;
+    if (lifecycleEvent === 'postinstall' || lifecycleEvent === 'install' || lifecycleEvent === 'preinstall') {
+      return;
+    }
+
     const pathDirs = (process.env.PATH || '').split(path.delimiter);
     const splitgameNames = process.platform === 'win32'
       ? ['splitgame.cmd', 'splitgame.ps1', 'splitgame', 'splitgame.exe']
@@ -481,6 +491,24 @@ export class TerminalInstaller {
       '  npm install -g splitgame\n' +
       '  npm link           (from the splitgame project directory)'
     );
+  }
+
+  private cleanOldBackups(backupDir: string, keep: number): void {
+    try {
+      const files = fs.readdirSync(backupDir)
+        .filter(f => /^settings\.\d{4}-\d{2}-\d{2}T.*\.json$/.test(f))
+        .map(f => ({
+          name: f,
+          mtime: fs.statSync(path.join(backupDir, f)).mtimeMs,
+        }))
+        .sort((a, b) => b.mtime - a.mtime);
+
+      for (const file of files.slice(keep)) {
+        try {
+          fs.unlinkSync(path.join(backupDir, file.name));
+        } catch {}
+      }
+    } catch {}
   }
 
   private ensureDir(dir: string): void {

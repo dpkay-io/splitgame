@@ -6,11 +6,11 @@ export class TerminalEmulator {
   private _dirty: boolean = true;
   private disposed: boolean = false;
 
-  constructor(cols: number, rows: number) {
+  constructor(cols: number, rows: number, scrollback: number = 1000) {
     this.terminal = new Terminal({
       cols,
       rows,
-      scrollback: 1000,
+      scrollback,
       allowProposedApi: true,
     });
 

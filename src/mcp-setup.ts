@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { parseJsonc } from './jsonc';
 
 export interface McpConfigResult {
   path: string;
@@ -33,7 +34,9 @@ export function setupMcp(baseDir: string, options?: McpSetupOptions): McpSetupRe
     {
       path: process.platform === 'win32'
         ? path.join(process.env.APPDATA || '', 'Claude', 'claude_desktop_config.json')
-        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+        : process.platform === 'linux'
+          ? path.join(os.homedir(), '.config', 'Claude', 'claude_desktop_config.json')
+          : path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
       name: 'Claude Desktop',
     },
   ];
@@ -47,10 +50,18 @@ export function setupMcp(baseDir: string, options?: McpSetupOptions): McpSetupRe
     let data: any = {};
     if (fs.existsSync(target.path)) {
       try {
-        data = JSON.parse(fs.readFileSync(target.path, 'utf-8'));
+        data = parseJsonc(fs.readFileSync(target.path, 'utf-8'));
       } catch {
-        result.configs.push({ ...target, status: 'parse-error' });
-        continue;
+        if (options?.force) {
+          const backupDir = path.join(os.homedir(), '.splitgame', 'backups');
+          if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+          const backupName = path.basename(target.path) + '.backup.' + Date.now();
+          fs.copyFileSync(target.path, path.join(backupDir, backupName));
+          data = {};
+        } else {
+          result.configs.push({ ...target, status: 'parse-error' });
+          continue;
+        }
       }
     }
 

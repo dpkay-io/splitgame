@@ -9,5 +9,6 @@ try {
     new ShellProfileInstaller().uninstall();
   }
 } catch (e) {
-  // Silently ignore — never block npm uninstall
+  // Never block npm uninstall, but log the error for debugging
+  console.error('splitgame preuninstall warning:', e && e.message ? e.message : e);
 }

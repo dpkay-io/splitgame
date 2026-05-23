@@ -2,6 +2,9 @@ import { ScreenCell, GameRenderState, PanelGeometry, GameCell } from './types';
 import { TerminalEmulator } from './terminal-emulator';
 import * as ansi from './utils/ansi';
 
+const MIN_COLS = 40;
+const MIN_ROWS = 10;
+
 export class Renderer {
   private geometry: PanelGeometry;
   private prevChildHash: string[] = [];
@@ -50,7 +53,30 @@ export class Renderer {
     return this.geometry;
   }
 
+  private isTooSmall(): boolean {
+    const cols = process.stdout.columns || 80;
+    const rows = process.stdout.rows || 24;
+    return cols < MIN_COLS || rows < MIN_ROWS;
+  }
+
+  private renderTooSmall(): void {
+    const cols = process.stdout.columns || 80;
+    const rows = process.stdout.rows || 24;
+    const msg = 'Terminal too small';
+    const sub = `Need ${MIN_COLS}x${MIN_ROWS}, got ${cols}x${rows}`;
+    let output = ansi.hideCursor() + ansi.clearScreen();
+    const midRow = Math.max(1, Math.floor(rows / 2));
+    const msgCol = Math.max(1, Math.floor((cols - msg.length) / 2) + 1);
+    const subCol = Math.max(1, Math.floor((cols - sub.length) / 2) + 1);
+    output += ansi.moveTo(midRow, msgCol) + msg;
+    output += ansi.moveTo(midRow + 1, subCol) + sub;
+    output += ansi.showCursor();
+    process.stdout.write(output);
+    this.invalidate();
+  }
+
   renderSplit(gameState: GameRenderState, statusBar?: string): void {
+    if (this.isTooSmall()) { this.renderTooSmall(); return; }
     const { leftWidth, rightWidth, height, borderCol } = this.geometry;
     let output = ansi.hideCursor();
 
@@ -63,7 +89,7 @@ export class Renderer {
       // Border
       output += ansi.moveTo(row + 1, borderCol + 1);
       output += ansi.resetAttributes();
-      output += `\x1b[38;5;240m│`;
+      output += ansi.noColor ? '│' : `\x1b[38;5;240m│`;
 
       // Only update rows that changed
       const childHash = childRowStr;
@@ -85,7 +111,7 @@ export class Renderer {
     const truncated = barText.slice(0, rightWidth);
     output += ansi.moveTo(height, borderCol + 2);
     output += ansi.resetAttributes();
-    output += `\x1b[48;5;236m\x1b[38;5;252m`;
+    if (!ansi.noColor) output += `\x1b[48;5;236m\x1b[38;5;252m`;
     output += truncated.padEnd(rightWidth, ' ');
 
     // Cursor
@@ -104,6 +130,7 @@ export class Renderer {
   }
 
   renderFullscreen(): void {
+    if (this.isTooSmall()) { this.renderTooSmall(); return; }
     const totalCols = process.stdout.columns || 80;
     const totalRows = process.stdout.rows || 24;
     let output = ansi.hideCursor();

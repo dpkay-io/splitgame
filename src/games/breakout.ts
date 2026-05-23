@@ -265,22 +265,52 @@ export class BreakoutGame implements IGame {
       }
     }
 
-    // Brick collision
-    const hitBrick = this.checkBrickCollision(Math.round(nextX), Math.round(nextY));
+    // Brick collision — check destination and both axis-aligned neighbors
+    // to prevent corner-cutting with fractional dx
+    const rnx = Math.round(nextX);
+    const rny = Math.round(nextY);
+    const rbx = Math.round(this.ballX);
+    const rby = Math.round(this.ballY);
+
+    // Check destination cell first, then the two intermediate cells
+    // (horizontal neighbor and vertical neighbor) to catch corner-cutting
+    let hitBrick = this.checkBrickCollision(rnx, rny);
+    let reflectAxis: 'x' | 'y' | 'both' = 'y';
+    if (hitBrick) {
+      // Determine reflection from previous position relative to brick
+      const brickLeft = hitBrick.x;
+      const brickRight = hitBrick.x + BRICK_WIDTH - 1;
+      if (rbx < brickLeft || rbx > brickRight) {
+        reflectAxis = rby === hitBrick.y ? 'both' : 'x';
+      } else {
+        reflectAxis = 'y';
+      }
+    }
+
+    if (!hitBrick && rnx !== rbx && rny !== rby) {
+      // Ball moved diagonally — check the horizontal neighbor (same row as dest, same col as prev)
+      const hBrick = this.checkBrickCollision(rbx, rny);
+      if (hBrick) {
+        hitBrick = hBrick;
+        reflectAxis = 'y';
+      } else {
+        // Check the vertical neighbor (same col as dest, same row as prev)
+        const vBrick = this.checkBrickCollision(rnx, rby);
+        if (vBrick) {
+          hitBrick = vBrick;
+          reflectAxis = 'x';
+        }
+      }
+    }
+
     if (hitBrick) {
       hitBrick.alive = false;
       this.score += 10;
 
-      // Determine reflection: compare ball center vs brick bounds
-      const brickLeft = hitBrick.x;
-      const brickRight = hitBrick.x + BRICK_WIDTH - 1;
-      const bx = Math.round(this.ballX);
-      const by = Math.round(this.ballY);
-
-      // If the ball was horizontally outside the brick, reflect dx; otherwise reflect dy
-      if (bx < brickLeft || bx > brickRight) {
+      if (reflectAxis === 'x' || reflectAxis === 'both') {
         this.ballDx = -this.ballDx;
-      } else {
+      }
+      if (reflectAxis === 'y' || reflectAxis === 'both') {
         this.ballDy = -this.ballDy;
       }
 

@@ -49,6 +49,8 @@ export class Orchestrator {
   private boundOnUncaught: ((err: Error) => void) | null = null;
   private boundOnResize: (() => void) | null = null;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastToggleTime: number = 0;
+  private readonly TOGGLE_DEBOUNCE_MS = 200;
 
   constructor(private options: OrchestratorOptions, configManager?: ConfigManager) {
     this.stateMachine = new StateMachine();
@@ -63,7 +65,7 @@ export class Orchestrator {
       (code) => this.onPtyExit(code),
     );
 
-    this.emulator = new TerminalEmulator(cols, rows);
+    this.emulator = new TerminalEmulator(cols, rows, this.configManager.get('scrollbackLines'));
     this.renderer = new Renderer(this.emulator, this.configManager.get('gameWidthPercent'));
 
     this.inputRouter = new InputRouter(
@@ -188,6 +190,9 @@ export class Orchestrator {
   }
 
   private onToggle(): void {
+    const now = performance.now();
+    if (now - this.lastToggleTime < this.TOGGLE_DEBOUNCE_MS) return;
+    this.lastToggleTime = now;
     this.stateMachine.transition(StateTransition.TOGGLE);
     this.applyState();
   }
@@ -244,8 +249,11 @@ export class Orchestrator {
     }
 
     if (this.stateMachine.state === AppState.ESC_PAUSED) {
+      const resumeKeys = new Set(['space', 'enter']);
+      if (!resumeKeys.has(key)) return;
       this.stateMachine.transition(StateTransition.RESUME);
       this.gameEngine.resume();
+      return;
     }
 
     if (this.inMenu) {
@@ -828,6 +836,10 @@ export class Orchestrator {
         });
       },
     };
+  }
+
+  destroy(): void {
+    this.cleanup();
   }
 
   private cleanup(): void {

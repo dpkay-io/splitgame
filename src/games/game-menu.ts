@@ -21,6 +21,7 @@ const CONFIG_LABELS: Record<ConfigKey, string> = {
   toggleKey: 'Toggle Key',
   modifierKey: 'Modifier Key',
   gameWidthPercent: 'Game Width',
+  scrollbackLines: 'Scrollback Lines',
 };
 
 export class GameMenu implements IGame {
@@ -35,6 +36,8 @@ export class GameMenu implements IGame {
   private configCursor = 0;
   private claudeConnected = false;
   private externalMovesCache: Map<string, boolean> = new Map();
+  private gamesScrollOffset = 0;
+  private scoresScrollOffset = 0;
 
   constructor(
     private highScores?: HighScoreManager,
@@ -88,7 +91,7 @@ export class GameMenu implements IGame {
 
     switch (this.currentTab) {
       case 0: this.handleGamesInput(key); break;
-      case 1: break; // High scores is read-only
+      case 1: this.handleScoresInput(key); break;
       case 2: this.handleConfigInput(key); break;
     }
   }
@@ -97,13 +100,49 @@ export class GameMenu implements IGame {
     switch (key) {
       case 'up':
         this.cursor = (this.cursor - 1 + this.games.length) % this.games.length;
+        this.ensureGameCursorVisible();
         break;
       case 'down':
         this.cursor = (this.cursor + 1) % this.games.length;
+        this.ensureGameCursorVisible();
         break;
       case 'space':
       case 'enter':
         this._selected = this.games[this.cursor];
+        break;
+    }
+  }
+
+  private ensureGameCursorVisible(): void {
+    // Each game item takes 2 rows; list starts at row 7, reserve 1 row at bottom
+    const maxVisibleItems = Math.max(1, Math.floor((this.height - 1 - 7) / 2));
+    if (this.cursor < this.gamesScrollOffset) {
+      this.gamesScrollOffset = this.cursor;
+    } else if (this.cursor >= this.gamesScrollOffset + maxVisibleItems) {
+      this.gamesScrollOffset = this.cursor - maxVisibleItems + 1;
+    }
+  }
+
+  private getScoresMaxScrollOffset(): number {
+    const games = getGameList();
+    const maxScoresPerGame = 5;
+    let totalLines = 0;
+    for (const game of games) {
+      const scores = this.highScores ? this.highScores.getTopScores(game.id, maxScoresPerGame) : [];
+      totalLines += scores.length === 0 ? 1 : scores.length;
+    }
+    const contentStartRow = 7;
+    const availableRows = Math.max(0, this.height - contentStartRow - 2);
+    return Math.max(0, totalLines - availableRows);
+  }
+
+  private handleScoresInput(key: string): void {
+    switch (key) {
+      case 'up':
+        this.scoresScrollOffset = Math.max(0, this.scoresScrollOffset - 1);
+        break;
+      case 'down':
+        this.scoresScrollOffset = Math.min(this.scoresScrollOffset + 1, this.getScoresMaxScrollOffset());
         break;
     }
   }
@@ -155,6 +194,16 @@ export class GameMenu implements IGame {
       if (next !== current) {
         this.configManager.set('gameWidthPercent', next);
         this.onConfigChanged?.('gameWidthPercent');
+      }
+    } else if (key === 'scrollbackLines') {
+      const current = this.configManager.get('scrollbackLines');
+      const step = current < 1000 ? 100 : current < 10000 ? 1000 : 10000;
+      const next = Math.max(
+        ConfigManager.minScrollback(),
+        Math.min(ConfigManager.maxScrollback(), current + direction * step),
+      );
+      if (next !== current) {
+        this.configManager.set('scrollbackLines', next);
       }
     }
   }
@@ -211,8 +260,24 @@ export class GameMenu implements IGame {
     this.writeText(grid, 5, subtitle, DARK_GRAY, DEFAULT);
 
     const startRow = 7;
-    for (let i = 0; i < this.games.length; i++) {
-      const row = startRow + i * 2;
+    const maxVisibleItems = Math.max(1, Math.floor((this.height - 1 - startRow) / 2));
+
+    // Clamp scroll offset
+    this.gamesScrollOffset = Math.max(0, Math.min(this.gamesScrollOffset, this.games.length - maxVisibleItems));
+
+    const hasMore = this.games.length > maxVisibleItems;
+    const hasItemsAbove = this.gamesScrollOffset > 0;
+    const hasItemsBelow = this.gamesScrollOffset + maxVisibleItems < this.games.length;
+
+    // Show scroll-up indicator
+    if (hasMore && hasItemsAbove) {
+      const indicator = `▲ ${this.gamesScrollOffset} more`;
+      this.writeText(grid, startRow - 1, indicator, DARK_GRAY, DEFAULT);
+    }
+
+    const endIndex = Math.min(this.gamesScrollOffset + maxVisibleItems, this.games.length);
+    for (let i = this.gamesScrollOffset; i < endIndex; i++) {
+      const row = startRow + (i - this.gamesScrollOffset) * 2;
       if (row >= this.height - 1) break;
 
       const isSelected = i === this.cursor;
@@ -229,6 +294,16 @@ export class GameMenu implements IGame {
         this.writeTextAt(grid, row, col + text.length, tag, MAGENTA, bg);
       }
     }
+
+    // Show scroll-down indicator
+    if (hasMore && hasItemsBelow) {
+      const belowCount = this.games.length - (this.gamesScrollOffset + maxVisibleItems);
+      const indicator = `▼ ${belowCount} more`;
+      const indicatorRow = startRow + maxVisibleItems * 2 - 1;
+      if (indicatorRow < this.height) {
+        this.writeText(grid, indicatorRow, indicator, DARK_GRAY, DEFAULT);
+      }
+    }
   }
 
   private renderScoresTab(grid: GameCell[][]): void {
@@ -236,7 +311,7 @@ export class GameMenu implements IGame {
     this.writeText(grid, 3, title, CYAN, DEFAULT);
 
     const headerGame = 'Game';
-    const headerScore = 'Best';
+    const headerScore = 'Score';
     const headerDate = 'Date';
     const colGame = 3;
     const colScore = Math.max(colGame + 16, this.width - 26);
@@ -254,25 +329,78 @@ export class GameMenu implements IGame {
       }
     }
 
+    // Build all score lines (game name + up to 5 scores each)
     const games = getGameList();
-    for (let i = 0; i < games.length; i++) {
-      const row = 7 + i;
+    const maxScoresPerGame = 5;
+    interface ScoreLine { gameName: string; rank: number; scoreText: string; dateText: string; isHeader: boolean }
+    const allLines: ScoreLine[] = [];
+
+    for (const game of games) {
+      const scores = this.highScores ? this.highScores.getTopScores(game.id, maxScoresPerGame) : [];
+      if (scores.length === 0) {
+        allLines.push({ gameName: game.name, rank: 0, scoreText: '---', dateText: '', isHeader: true });
+      } else {
+        for (let s = 0; s < scores.length; s++) {
+          allLines.push({
+            gameName: s === 0 ? game.name : '',
+            rank: s + 1,
+            scoreText: String(scores[s].score),
+            dateText: scores[s].date.slice(0, 10),
+            isHeader: s === 0,
+          });
+        }
+      }
+    }
+
+    // Reserve 1 row for bottom hint, 1 for possible scroll indicator
+    const contentStartRow = 7;
+    const availableRows = Math.max(0, this.height - contentStartRow - 2);
+
+    // Clamp scroll offset
+    const maxScrollOffset = Math.max(0, allLines.length - availableRows);
+    this.scoresScrollOffset = Math.max(0, Math.min(this.scoresScrollOffset, maxScrollOffset));
+
+    const hasItemsAbove = this.scoresScrollOffset > 0;
+    const hasItemsBelow = this.scoresScrollOffset + availableRows < allLines.length;
+
+    for (let i = 0; i < availableRows && this.scoresScrollOffset + i < allLines.length; i++) {
+      const line = allLines[this.scoresScrollOffset + i];
+      const row = contentStartRow + i;
       if (row >= this.height - 1) break;
 
-      this.writeTextAt(grid, row, colGame, games[i].name, GRAY, DEFAULT);
-
-      if (this.highScores) {
-        const scores = this.highScores.getTopScores(games[i].id, 1);
-        if (scores.length > 0) {
-          this.writeTextAt(grid, row, colScore, String(scores[0].score), GREEN, DEFAULT);
-          const date = scores[0].date.slice(0, 10);
-          this.writeTextAt(grid, row, colDate, date, DARK_GRAY, DEFAULT);
-        } else {
-          this.writeTextAt(grid, row, colScore, '---', DARK_GRAY, DEFAULT);
-        }
-      } else {
-        this.writeTextAt(grid, row, colScore, '---', DARK_GRAY, DEFAULT);
+      if (line.gameName) {
+        this.writeTextAt(grid, row, colGame, line.gameName, GRAY, DEFAULT);
       }
+      if (line.scoreText === '---') {
+        this.writeTextAt(grid, row, colScore, '---', DARK_GRAY, DEFAULT);
+      } else {
+        const rankPrefix = line.isHeader ? '' : `  ${line.rank}. `;
+        const scoreFg = line.isHeader ? GREEN : GRAY;
+        if (!line.isHeader) {
+          this.writeTextAt(grid, row, colGame + 1, rankPrefix, DARK_GRAY, DEFAULT);
+        }
+        this.writeTextAt(grid, row, colScore, line.scoreText, scoreFg, DEFAULT);
+        this.writeTextAt(grid, row, colDate, line.dateText, DARK_GRAY, DEFAULT);
+      }
+    }
+
+    // Show scroll indicators
+    if (hasItemsAbove) {
+      const indicator = '▲ scroll up';
+      this.writeText(grid, contentStartRow - 1, indicator, DARK_GRAY, DEFAULT);
+    }
+    if (hasItemsBelow) {
+      const indicatorRow = contentStartRow + availableRows;
+      if (indicatorRow < this.height) {
+        const indicator = '▼ scroll down';
+        this.writeText(grid, indicatorRow, indicator, DARK_GRAY, DEFAULT);
+      }
+    }
+
+    // Navigation hint at bottom
+    const hintRow = this.height - 1;
+    if (hintRow > contentStartRow) {
+      this.writeText(grid, hintRow, '↑↓ Scroll  Tab: sections  Esc: back', DARK_GRAY, DEFAULT);
     }
   }
 
@@ -285,6 +413,7 @@ export class GameMenu implements IGame {
       return;
     }
 
+    const defaults = ConfigManager.defaults();
     const startRow = 6;
     for (let i = 0; i < CONFIG_KEYS.length; i++) {
       const row = startRow + i * 2;
@@ -294,16 +423,21 @@ export class GameMenu implements IGame {
       const isSelected = i === this.configCursor;
       const label = CONFIG_LABELS[key];
       const value = this.formatConfigValue(key);
+      const isDefault = this.configManager.get(key) === defaults[key];
       const fg = isSelected ? YELLOW : GRAY;
       const bg = isSelected ? HIGHLIGHT_BG : DEFAULT;
 
       const prefix = isSelected ? '► ' : '  ';
       const text = `${prefix}${label.padEnd(16)} [ ${value.padEnd(10)} ]`;
       const arrows = isSelected ? '  ◄ ►' : '';
+      const marker = isDefault ? '  (default)' : '  ● custom';
 
       this.writeTextAt(grid, row, 3, text, fg, bg);
       if (arrows) {
         this.writeTextAt(grid, row, 3 + text.length, arrows, CYAN, DEFAULT);
+        this.writeTextAt(grid, row, 3 + text.length + arrows.length, marker, isDefault ? DARK_GRAY : MAGENTA, DEFAULT);
+      } else {
+        this.writeTextAt(grid, row, 3 + text.length, marker, isDefault ? DARK_GRAY : MAGENTA, DEFAULT);
       }
     }
 
@@ -334,6 +468,8 @@ export class GameMenu implements IGame {
     this._selected = null;
     this.currentTab = 0;
     this.configCursor = 0;
+    this.gamesScrollOffset = 0;
+    this.scoresScrollOffset = 0;
   }
 
   private createEmptyGrid(): GameCell[][] {

@@ -24,6 +24,7 @@ function handleMcpSetup(force: boolean): void {
       process.stdout.write(`${config.name} already configured (use --force to overwrite)\n`);
     } else if (config.status === 'parse-error') {
       process.stderr.write(`splitgame mcp-setup: could not parse ${config.path}, skipping\n`);
+      process.stderr.write(`  Check ${config.path} for syntax errors, or run 'splitgame mcp-setup --force' to regenerate.\n`);
     }
   }
 
@@ -53,7 +54,8 @@ function handleConfigCommand(args: string[]): void {
       process.stdout.write('\n');
       process.stdout.write('  Valid toggleKey:        f12, ctrl+]\n');
       process.stdout.write('  Valid modifierKey:      ctrl, alt\n');
-      process.stdout.write('  Valid gameWidthPercent: 20–80\n\n');
+      process.stdout.write('  Valid gameWidthPercent: 20–80\n');
+      process.stdout.write('  Valid scrollbackLines:  100–100000\n\n');
       break;
     }
     case 'get': {
@@ -77,7 +79,7 @@ function handleConfigCommand(args: string[]): void {
         process.exit(1);
       }
       try {
-        const parsed = key === 'gameWidthPercent' ? Number(value) : value;
+        const parsed = (key === 'gameWidthPercent' || key === 'scrollbackLines') ? Number(value) : value;
         config.set(key, parsed as any);
         process.stdout.write(`${key} = ${config.get(key)}\n`);
       } catch (e: any) {
@@ -142,6 +144,17 @@ function printHelp(): void {
   process.stdout.write('                          inside splitgame.\n');
   process.stdout.write('    F12 (default)         Toggle the game panel (configurable via splitgame config).\n\n');
 }
+
+let orchestratorInstance: Orchestrator | null = null;
+
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  process.stderr.write(`splitgame: unhandled promise rejection: ${msg}\n`);
+  if (orchestratorInstance) {
+    orchestratorInstance.destroy();
+  }
+  process.exit(1);
+});
 
 function main(): void {
   const rawArgs = process.argv.slice(2);
@@ -218,7 +231,12 @@ function main(): void {
       const games = getGameList();
       process.stdout.write('\n  Available games:\n\n');
       for (const g of games) {
-        process.stdout.write(`    ${g.id.padEnd(14)} ${g.name}\n`);
+        let tag = '';
+        try {
+          const instance = g.create();
+          if (instance.supportsExternalMoves) tag = '  (Claude)';
+        } catch {}
+        process.stdout.write(`    ${g.id.padEnd(14)} ${g.name}${tag}\n`);
       }
       process.stdout.write('\n');
       process.exit(0);
@@ -277,6 +295,7 @@ function main(): void {
   }
 
   const orchestrator = new Orchestrator({ command, args: commandArgs, gameId }, configManager);
+  orchestratorInstance = orchestrator;
   orchestrator.start();
 }
 

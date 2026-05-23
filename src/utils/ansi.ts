@@ -2,6 +2,9 @@ import { ANSIColor } from '../types';
 
 const ESC = '\x1b[';
 
+/** NO_COLOR standard (https://no-color.org/): suppress color when set. */
+export const noColor: boolean = process.env.NO_COLOR != null;
+
 export function moveTo(row: number, col: number): string {
   return `${ESC}${row};${col}H`;
 }
@@ -9,12 +12,12 @@ export function moveTo(row: number, col: number): string {
 export function hideCursor(): string { return `${ESC}?25l`; }
 export function showCursor(): string { return `${ESC}?25h`; }
 export function resetAttributes(): string { return `${ESC}0m`; }
-export function bold(): string { return `${ESC}1m`; }
-export function dim(): string { return `${ESC}2m`; }
-export function italic(): string { return `${ESC}3m`; }
-export function underline(): string { return `${ESC}4m`; }
-export function inverse(): string { return `${ESC}7m`; }
-export function strikethrough(): string { return `${ESC}9m`; }
+export function bold(): string { return noColor ? '' : `${ESC}1m`; }
+export function dim(): string { return noColor ? '' : `${ESC}2m`; }
+export function italic(): string { return noColor ? '' : `${ESC}3m`; }
+export function underline(): string { return noColor ? '' : `${ESC}4m`; }
+export function inverse(): string { return noColor ? '' : `${ESC}7m`; }
+export function strikethrough(): string { return noColor ? '' : `${ESC}9m`; }
 export function clearScreen(): string { return `${ESC}2J${ESC}H`; }
 export function alternateScreen(): string { return `${ESC}?1049h`; }
 export function mainScreen(): string { return `${ESC}?1049l`; }
@@ -22,6 +25,7 @@ export function enableMouseMode(): string { return `${ESC}?1000h${ESC}?1006h`; }
 export function disableMouseMode(): string { return `${ESC}?1000l${ESC}?1006l`; }
 
 export function fgColor(color: ANSIColor): string {
+  if (noColor) return '';
   switch (color.mode) {
     case 'default': return `${ESC}39m`;
     case 'palette':
@@ -38,6 +42,7 @@ export function fgColor(color: ANSIColor): string {
 }
 
 export function bgColor(color: ANSIColor): string {
+  if (noColor) return '';
   switch (color.mode) {
     case 'default': return `${ESC}49m`;
     case 'palette':
