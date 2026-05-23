@@ -10,6 +10,14 @@ const transitionTable: Record<AppState, Partial<Record<StateTransition, AppState
   [AppState.GAME_ACTIVE]: {
     [StateTransition.TOGGLE]: AppState.GAME_MINIMIZED,
     [StateTransition.MANUAL_PAUSE]: AppState.GAME_PAUSED,
+    [StateTransition.ESC_PAUSE]: AppState.ESC_PAUSED,
+    [StateTransition.MINIMIZE]: AppState.GAME_MINIMIZED,
+    [StateTransition.CHILD_EXIT]: AppState.EXITING,
+    [StateTransition.FATAL_ERROR]: AppState.EXITING,
+  },
+  [AppState.ESC_PAUSED]: {
+    [StateTransition.TOGGLE]: AppState.GAME_MINIMIZED,
+    [StateTransition.RESUME]: AppState.GAME_ACTIVE,
     [StateTransition.MINIMIZE]: AppState.GAME_MINIMIZED,
     [StateTransition.CHILD_EXIT]: AppState.EXITING,
     [StateTransition.FATAL_ERROR]: AppState.EXITING,
@@ -33,7 +41,7 @@ export class StateMachine extends EventEmitter {
     return {
       state: this._state,
       inputFocus: this.getInputFocus(),
-      gameVisible: this._state === AppState.GAME_ACTIVE || this._state === AppState.GAME_PAUSED,
+      gameVisible: this._state === AppState.GAME_ACTIVE || this._state === AppState.GAME_PAUSED || this._state === AppState.ESC_PAUSED,
     };
   }
 
@@ -47,7 +55,7 @@ export class StateMachine extends EventEmitter {
   }
 
   private getInputFocus(): InputFocus {
-    if (this._state === AppState.GAME_ACTIVE) return InputFocus.GAME;
+    if (this._state === AppState.GAME_ACTIVE || this._state === AppState.ESC_PAUSED) return InputFocus.GAME;
     return InputFocus.CHILD;
   }
 }

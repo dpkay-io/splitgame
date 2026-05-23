@@ -21,7 +21,7 @@ export class PtyManager {
         || paths.find(p => /\.(cmd|bat)$/i.test(p))
         || paths[0];
     } catch {
-      return command;
+      throw new Error(`command not found: ${command}`);
     }
   }
 

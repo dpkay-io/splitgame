@@ -57,7 +57,7 @@ export class IpcServer {
     private bridge: GameBridge,
     callbacks?: { onConnect?: () => void; onDisconnect?: () => void },
   ) {
-    this.portFile = path.join(os.homedir(), '.splitgame', 'ipc-port');
+    this.portFile = path.join(os.homedir(), '.splitgame', `ipc-port-${process.pid}`);
     this.onClientConnect = callbacks?.onConnect;
     this.onClientDisconnect = callbacks?.onDisconnect;
   }

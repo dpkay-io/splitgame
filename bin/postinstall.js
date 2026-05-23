@@ -2,6 +2,10 @@
 // Runs automatically on `npm install -g splitgame` to configure the user's terminal
 // and Claude Code MCP integration. Silently ignored on failure — the user can always
 // run `splitgame install` or `splitgame mcp-setup` manually.
+
+// Skip during local dev installs — only patch terminal profiles for global installs
+if (process.env.npm_config_global !== 'true') process.exit(0);
+
 try {
   if (process.platform === 'win32') {
     const { TerminalInstaller } = require('../dist/installer');

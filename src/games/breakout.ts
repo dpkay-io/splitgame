@@ -16,6 +16,7 @@ const BRICK_WIDTH = 3;
 const PADDLE_WIDTH = 7;
 const BALL_CHAR = '●';
 const BRICK_CHAR = '█';
+const BRICK_CHARS = ['█', '▓', '▒', '░', '▀'];
 const PADDLE_CHAR = '═';
 const BALL_TICK_MS = 50;
 const INITIAL_LIVES = 3;
@@ -58,9 +59,10 @@ export class BreakoutGame implements IGame {
   tick(deltaMs: number): void {
     if (this._paused || this._gameOver || this.ballAttached) return;
 
-    this.ballAccumulator += deltaMs;
-    while (this.ballAccumulator >= BALL_TICK_MS) {
-      this.ballAccumulator -= BALL_TICK_MS;
+    this.ballAccumulator += Math.min(deltaMs, 100);
+    const tickMs = Math.max(25, BALL_TICK_MS - (this.level - 1) * 5);
+    while (this.ballAccumulator >= tickMs) {
+      this.ballAccumulator -= tickMs;
       this.moveBall();
       if (this._gameOver || this.ballAttached) break;
     }
@@ -68,7 +70,7 @@ export class BreakoutGame implements IGame {
 
   handleInput(key: string): void {
     if (this._gameOver) {
-      if (key === 'reset' || key === 'r') this.reset();
+      if (key === 'reset' || key === 'r' || key === 'space' || key === 'enter') this.reset();
       return;
     }
 
@@ -105,10 +107,11 @@ export class BreakoutGame implements IGame {
     for (const brick of this.bricks) {
       if (!brick.alive) continue;
       const color = ROW_COLORS[brick.colorRow % ROW_COLORS.length];
+      const brickChar = BRICK_CHARS[brick.colorRow % BRICK_CHARS.length];
       for (let i = 0; i < BRICK_WIDTH; i++) {
         const col = brick.x + i;
         if (col >= 0 && col < this.width && brick.y >= 0 && brick.y < this.height) {
-          grid[brick.y][col] = { char: BRICK_CHAR, fg: color, bg: DEFAULT };
+          grid[brick.y][col] = { char: brickChar, fg: color, bg: DEFAULT };
         }
       }
     }

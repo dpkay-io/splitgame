@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { IpcServer, GameBridge, CompactGameState } from '../src/ipc-server';
 
-const PORT_FILE = path.join(os.homedir(), '.splitgame', 'ipc-port');
+const PORT_FILE = path.join(os.homedir(), '.splitgame', `ipc-port-${process.pid}`);
 
 function createMockBridge(): GameBridge {
   return {

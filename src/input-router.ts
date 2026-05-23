@@ -60,11 +60,13 @@ export class InputRouter {
 
   private consumeMouseEvent(data: Buffer): boolean {
     const s = data.toString('utf8');
-    const match = s.match(/^\x1b\[<(\d+);\d+;\d+[Mm]$/);
-    if (!match) return false;
-    const button = parseInt(match[1]);
-    if (button === 64) this.onScroll(-3);
-    else if (button === 65) this.onScroll(3);
+    if (!s.startsWith('\x1b[<')) return false;
+    const regex = /\x1b\[<(\d+);\d+;\d+[Mm]/g;
+    for (const match of s.matchAll(regex)) {
+      const button = parseInt(match[1]);
+      if (button === 64) this.onScroll(-3);
+      else if (button === 65) this.onScroll(3);
+    }
     return true;
   }
 
@@ -107,6 +109,7 @@ export class InputRouter {
     if (s === 'x' || s === 'X') return 'minimize';
     if (s === 'r' || s === 'R') return 'reset';
     if (s === 'f' || s === 'F') return 'flag';
+    if (s === 'h' || s === 'H') return 'help';
     if (s === 'm' || s === 'M') return 'next-game';
     if (s === ' ') return 'space';
     if (s === '\r' || s === '\n') return 'enter';

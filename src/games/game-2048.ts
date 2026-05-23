@@ -303,25 +303,21 @@ export class Game2048 implements IGame {
   ): void {
     const fg = DARK_GRAY;
 
-    // Horizontal lines (between rows and at top/bottom edges).
     for (let i = 0; i <= 4; i++) {
       const row = oy + i * tileH;
       if (row < 0 || row >= this.height) continue;
-      // Only draw border rows at i=0 (top) and i=4 (bottom), plus between tiles.
-      // Skip top-most and bottom-most if they coincide with tile content — but
-      // since tileH=3, row 0*3=0 is the border above row-0 tiles (which start rendering at oy+0).
-      // We draw on the row *before* each tile band and one extra at the end.
-    }
-
-    // Simpler approach: draw '+' at intersections, '-' on horizontal borders, '|' on vertical.
-    for (let i = 0; i <= 4; i++) {
-      const row = oy + i * tileH;
-      if (row >= 0 && row < this.height) {
-        for (let col = ox; col < ox + tileW * 4 + 1 && col < this.width; col++) {
-          if (col >= 0) {
-            const isIntersection = (col - ox) % tileW === 0;
-            grid[row][col] = { char: isIntersection ? '+' : '-', fg, bg: DEFAULT };
-          }
+      for (let col = ox; col < ox + tileW * 4 + 1 && col < this.width; col++) {
+        if (col < 0) continue;
+        const isVLine = (col - ox) % tileW === 0;
+        if (isVLine) {
+          const ci = (col - ox) / tileW;
+          let char: string;
+          if (i === 0)      char = ci === 0 ? '┌' : ci === 4 ? '┐' : '┬';
+          else if (i === 4) char = ci === 0 ? '└' : ci === 4 ? '┘' : '┴';
+          else              char = ci === 0 ? '├' : ci === 4 ? '┤' : '┼';
+          grid[row][col] = { char, fg, bg: DEFAULT };
+        } else {
+          grid[row][col] = { char: '─', fg, bg: DEFAULT };
         }
       }
     }
@@ -330,11 +326,8 @@ export class Game2048 implements IGame {
       const col = ox + i * tileW;
       if (col < 0 || col >= this.width) continue;
       for (let row = oy; row < oy + tileH * 4 + 1 && row < this.height; row++) {
-        if (row >= 0) {
-          // Don't overwrite intersection '+'
-          if (grid[row][col].char !== '+') {
-            grid[row][col] = { char: '|', fg, bg: DEFAULT };
-          }
+        if (row >= 0 && (row - oy) % tileH !== 0) {
+          grid[row][col] = { char: '│', fg, bg: DEFAULT };
         }
       }
     }

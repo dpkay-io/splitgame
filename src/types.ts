@@ -1,6 +1,7 @@
 export enum AppState {
   GAME_ACTIVE = 'GAME_ACTIVE',
   GAME_PAUSED = 'GAME_PAUSED',
+  ESC_PAUSED = 'ESC_PAUSED',
   GAME_MINIMIZED = 'GAME_MINIMIZED',
   EXITING = 'EXITING',
 }
@@ -13,6 +14,7 @@ export enum InputFocus {
 export enum StateTransition {
   TOGGLE = 'TOGGLE',
   MANUAL_PAUSE = 'MANUAL_PAUSE',
+  ESC_PAUSE = 'ESC_PAUSE',
   MINIMIZE = 'MINIMIZE',
   RESUME = 'RESUME',
   CHILD_EXIT = 'CHILD_EXIT',

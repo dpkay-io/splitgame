@@ -6,9 +6,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const PORT_FILE = path.join(os.homedir(), '.splitgame', 'ipc-port');
 const CONNECT_RETRIES = 3;
 const CONNECT_DELAY_MS = 500;
+const IPC_TIMEOUT_MS = 10000;
 
 let ipcSocket: net.Socket | null = null;
 let requestId = 0;
@@ -17,16 +17,23 @@ let ipcBuffer = '';
 
 function connectIpc(): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
-    let port: number;
-    let authToken: string;
+    let port = 0;
+    let authToken = '';
     try {
-      const lines = fs.readFileSync(PORT_FILE, 'utf-8').trim().split('\n');
-      port = parseInt(lines[0].trim(), 10);
-      authToken = (lines[1] || '').trim();
-      if (!authToken) {
-        reject(new Error('splitgame ipc-port file missing auth token'));
-        return;
+      const dir = path.join(os.homedir(), '.splitgame');
+      const files = fs.readdirSync(dir)
+        .filter(f => f.startsWith('ipc-port'))
+        .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      for (const file of files) {
+        try {
+          const lines = fs.readFileSync(path.join(dir, file.name), 'utf-8').trim().split('\n');
+          const p = parseInt(lines[0].trim(), 10);
+          const t = (lines[1] || '').trim();
+          if (p && t) { port = p; authToken = t; break; }
+        } catch { continue; }
       }
+      if (!port || !authToken) throw new Error('no valid port files');
     } catch {
       reject(new Error('splitgame is not running (no ipc-port file)'));
       return;
@@ -95,7 +102,14 @@ function ipcCall(method: string, params?: Record<string, unknown>): Promise<any>
     try {
       const socket = await ensureConnection();
       const id = ++requestId;
-      pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`IPC call '${method}' timed out`));
+      }, IPC_TIMEOUT_MS);
+      pending.set(id, {
+        resolve: (val: any) => { clearTimeout(timer); resolve(val); },
+        reject: (err: Error) => { clearTimeout(timer); reject(err); },
+      });
       socket.write(JSON.stringify({ id, method, params: params || {} }) + '\n');
     } catch (err) {
       reject(err);
@@ -214,7 +228,7 @@ IMPORTANT: Do NOT simulate or describe a game in text. Use the MCP tools to inte
   server.tool(
     'select_game',
     'Open the game panel and start a specific game. Use when no game is active or to switch games. After starting tic-tac-toe, the player moves first (X) — call wait_for_turn immediately.',
-    { gameId: z.string().describe('Game ID: "tic-tac-toe", "snake", "2048", "tetris", "breakout", "minesweeper", "flappy-bird"') },
+    { gameId: z.string().describe('Game ID: "tictactoe", "snake", "2048", "tetris", "breakout", "minesweeper", "flappy"') },
     async ({ gameId }) => {
       try {
         const result = await ipcCall('select_game', { gameId });

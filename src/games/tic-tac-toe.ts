@@ -29,6 +29,8 @@ export class TicTacToeGame implements IGame {
   private _waitingForClaude = false;
   private difficulty: 'easy' | 'medium' | 'hard' = 'medium';
   private movesMade = false;
+  private streak = 0;
+  private bestStreak = 0;
 
   init(width: number, height: number): void {
     this.width = width;
@@ -105,7 +107,7 @@ export class TicTacToeGame implements IGame {
 
     return {
       grid,
-      score: this.wins,
+      score: this.bestStreak,
       status: this._gameOver ? 'gameover' : this._paused ? 'paused' : 'playing',
       statusMessage,
     };
@@ -125,6 +127,8 @@ export class TicTacToeGame implements IGame {
     this.wins = 0;
     this.losses = 0;
     this.draws = 0;
+    this.streak = 0;
+    this.bestStreak = 0;
     this.resetBoard();
   }
 
@@ -304,9 +308,17 @@ export class TicTacToeGame implements IGame {
   private endRound(result: 'X' | 'O' | 'draw'): void {
     this._gameOver = true;
     this.winner = result;
-    if (result === 'X') this.wins++;
-    else if (result === 'O') this.losses++;
-    else this.draws++;
+    if (result === 'X') {
+      this.wins++;
+      this.streak++;
+      if (this.streak > this.bestStreak) this.bestStreak = this.streak;
+    } else if (result === 'O') {
+      this.losses++;
+      this.streak = 0;
+    } else {
+      this.draws++;
+      this.streak = 0;
+    }
   }
 
   // --- Private: rendering ---

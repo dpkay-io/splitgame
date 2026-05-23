@@ -36,7 +36,7 @@ describe('SnakeGame', () => {
     let foodFound = false;
     for (const row of state.grid) {
       for (const cell of row) {
-        if (cell.char === '*') foodFound = true;
+        if (cell.char === '●') foodFound = true;
       }
     }
     expect(foodFound).toBe(true);

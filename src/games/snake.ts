@@ -22,6 +22,7 @@ export class SnakeGame implements IGame {
   private score = 0;
   private _paused = false;
   private _gameOver = false;
+  private _won = false;
   private moveAccumulator = 0;
   private moveIntervalMs = 150;
 
@@ -83,7 +84,7 @@ export class SnakeGame implements IGame {
 
     // food
     if (this.inBounds(this.food)) {
-      grid[this.food.y][this.food.x] = { char: '*', fg: RED, bg: DEFAULT };
+      grid[this.food.y][this.food.x] = { char: '●', fg: RED, bg: DEFAULT };
     }
 
     // snake body then head (head overwrites)
@@ -100,7 +101,7 @@ export class SnakeGame implements IGame {
     }
 
     let statusMessage: string | undefined;
-    if (this._gameOver) statusMessage = 'GAME OVER - Press SPACE or R';
+    if (this._gameOver) statusMessage = this._won ? 'YOU WIN! - Press SPACE or R' : 'YOU LOSE - Press SPACE or R';
     else if (this._paused) statusMessage = 'PAUSED - Ctrl+Space to resume';
 
     return {
@@ -126,6 +127,7 @@ export class SnakeGame implements IGame {
 
   reset(): void {
     this._gameOver = false;
+    this._won = false;
     this._paused = false;
     this.score = 0;
     this.direction = 'right';
@@ -185,6 +187,7 @@ export class SnakeGame implements IGame {
       }
     }
     if (free.length === 0) {
+      this._won = true;
       this._gameOver = true;
       return;
     }

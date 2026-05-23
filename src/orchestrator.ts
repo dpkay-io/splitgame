@@ -42,7 +42,7 @@ export class Orchestrator {
   private cachedGameInfo: Array<{ id: string; name: string; supportsExternalMoves: boolean }> | null = null;
   private passthrough = false;
   private scrolledBack = false;
-  private escapePaused = false;
+  private helpVisible = false;
   private signalHandlersRegistered = false;
   private boundOnSignal: (() => void) | null = null;
   private boundOnExit: (() => void) | null = null;
@@ -193,20 +193,23 @@ export class Orchestrator {
   }
 
   private onGameInput(key: string): void {
+    if (this.helpVisible) {
+      this.helpVisible = false;
+      return;
+    }
     if (key === 'escape') {
       this.handleEscape();
       return;
     }
     if (key === 'minimize') {
-      this.escapePaused = false;
       this.stateMachine.transition(StateTransition.MINIMIZE);
       this.applyState();
       return;
     }
     if (key === 'pause') {
       if (this.inMenu) return;
-      if (this.escapePaused) {
-        this.escapePaused = false;
+      if (this.stateMachine.state === AppState.ESC_PAUSED) {
+        this.stateMachine.transition(StateTransition.RESUME);
         this.gameEngine.resume();
         return;
       }
@@ -219,7 +222,6 @@ export class Orchestrator {
       return;
     }
     if (key === 'ctrl-c') {
-      this.escapePaused = false;
       this.stateMachine.transition(StateTransition.MINIMIZE);
       this.applyState();
       return;
@@ -232,13 +234,17 @@ export class Orchestrator {
       this.handleResize(key === 'resize-right' ? -5 : 5);
       return;
     }
+    if (key === 'help' && !this.inMenu) {
+      this.helpVisible = true;
+      return;
+    }
     if (key === 'reset' && !this.inMenu) {
       this.restartGame();
       return;
     }
 
-    if (this.escapePaused) {
-      this.escapePaused = false;
+    if (this.stateMachine.state === AppState.ESC_PAUSED) {
+      this.stateMachine.transition(StateTransition.RESUME);
       this.gameEngine.resume();
     }
 
@@ -267,12 +273,12 @@ export class Orchestrator {
       this.switchToMenu();
       return;
     }
-    if (this.escapePaused) {
+    if (this.stateMachine.state === AppState.ESC_PAUSED) {
       this.switchToMenu();
       return;
     }
     this.gameEngine.pause();
-    this.escapePaused = true;
+    this.stateMachine.transition(StateTransition.ESC_PAUSE);
   }
 
   private handleResize(delta: number): void {
@@ -304,7 +310,9 @@ export class Orchestrator {
 
   private restartGame(): void {
     if (!this.currentGameId) return;
-    this.escapePaused = false;
+    if (this.stateMachine.state === AppState.ESC_PAUSED) {
+      this.stateMachine.transition(StateTransition.RESUME);
+    }
     this.celebrationEndTime = 0;
     this.checkAndSubmitScore();
     this.gameEngine.stop();
@@ -359,9 +367,12 @@ export class Orchestrator {
   }
 
   private switchToMenu(): void {
-    this.escapePaused = false;
+    if (this.stateMachine.state === AppState.ESC_PAUSED) {
+      this.stateMachine.transition(StateTransition.RESUME);
+    }
     this.checkAndSubmitScore();
     this.flushTurnWaiters();
+    this.helpVisible = false;
     this.gameEngine.stop();
     this.gameMenu.clearSelection();
     this.gameMenu.reset();
@@ -410,6 +421,7 @@ export class Orchestrator {
       this.emulator.resize(geo.leftWidth, geo.height);
       this.ptyManager.resize(geo.leftWidth, geo.height);
       this.gameEngine.resize(geo.rightWidth, geo.height - 1);
+      process.stdout.write(ansi.clearScreen());
     }
 
     this.renderer.invalidate();
@@ -423,7 +435,6 @@ export class Orchestrator {
 
     switch (state) {
       case AppState.GAME_ACTIVE:
-        this.escapePaused = false;
         if (this.scrolledBack) {
           this.scrolledBack = false;
           this.emulator.scrollToBottom();
@@ -449,6 +460,7 @@ export class Orchestrator {
 
       case AppState.GAME_MINIMIZED:
         this.checkAndSubmitScore();
+        this.helpVisible = false;
         this.gameEngine.pause();
         this.gameEngine.stop();
         this.emulator.resize(cols, rows);
@@ -475,7 +487,7 @@ export class Orchestrator {
   }
 
   private renderFrame(): void {
-    if (this.cleanedUp) return;
+    if (this.cleanedUp || this.shuttingDown) return;
     const state = this.stateMachine.state;
 
     if (state === AppState.GAME_MINIMIZED) {
@@ -483,21 +495,158 @@ export class Orchestrator {
       if (this.emulator.consumeDirty()) {
         this.renderer.renderFullscreen();
       }
-    } else if (state === AppState.GAME_ACTIVE || state === AppState.GAME_PAUSED) {
+    } else if (state === AppState.GAME_ACTIVE || state === AppState.GAME_PAUSED || state === AppState.ESC_PAUSED) {
       this.checkAndSubmitScore();
       const gameState = this.gameEngine.getState();
+      if (state === AppState.ESC_PAUSED) {
+        this.applyPauseOverlay(gameState);
+      }
+      if (gameState.status === 'gameover') {
+        this.applyGameOverOverlay(gameState);
+      }
+      if (this.helpVisible) {
+        this.applyHelpOverlay(gameState);
+      }
       const statusBar = this.buildStatusBar(gameState);
       this.renderer.renderSplit(gameState, statusBar);
+    }
+  }
+
+  private applyPauseOverlay(gameState: GameRenderState): void {
+    const grid = gameState.grid;
+    if (grid.length === 0 || grid[0].length === 0) return;
+
+    const dimFg = { mode: 'palette' as const, value: 238 };
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.char !== ' ') cell.fg = dimFg;
+      }
+    }
+
+    const label = '  PAUSED  ';
+    const midRow = Math.floor(grid.length / 2);
+    const midCol = Math.floor((grid[0].length - label.length) / 2);
+    const labelBg = { mode: 'palette' as const, value: 236 };
+    const labelFg = { mode: 'palette' as const, value: 15 };
+    for (let i = 0; i < label.length; i++) {
+      const col = midCol + i;
+      if (col >= 0 && col < grid[midRow].length) {
+        grid[midRow][col] = { char: label[i], fg: labelFg, bg: labelBg };
+      }
+    }
+  }
+
+  private applyGameOverOverlay(gameState: GameRenderState): void {
+    const grid = gameState.grid;
+    if (grid.length === 0 || grid[0].length === 0) return;
+
+    const dimFg = { mode: 'palette' as const, value: 238 };
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.char !== ' ') cell.fg = dimFg;
+      }
+    }
+
+    const msg = gameState.statusMessage || 'GAME OVER';
+    const labelParts = msg.split(' - ');
+    const line1 = labelParts[0].trim();
+    const line2 = labelParts.length > 1 ? labelParts[1].trim() : 'R:Restart | Esc:Menu';
+
+    const boxWidth = Math.max(line1.length, line2.length) + 4;
+    const midRow = Math.floor(grid.length / 2);
+    const midCol = Math.floor((grid[0].length - boxWidth) / 2);
+    const labelBg = { mode: 'palette' as const, value: 236 };
+    const titleFg = { mode: 'palette' as const, value: 15 };
+    const subtitleFg = { mode: 'palette' as const, value: 250 };
+
+    const rows = [midRow - 1, midRow, midRow + 1];
+    for (const r of rows) {
+      if (r < 0 || r >= grid.length) continue;
+      for (let c = midCol; c < midCol + boxWidth && c < grid[r].length; c++) {
+        if (c >= 0) grid[r][c] = { char: ' ', fg: titleFg, bg: labelBg };
+      }
+    }
+
+    const pad1 = Math.floor((boxWidth - line1.length) / 2);
+    for (let i = 0; i < line1.length; i++) {
+      const col = midCol + pad1 + i;
+      if (col >= 0 && midRow - 1 >= 0 && col < grid[midRow - 1].length) {
+        grid[midRow - 1][col] = { char: line1[i], fg: titleFg, bg: labelBg };
+      }
+    }
+
+    const scoreStr = `Score: ${gameState.score}`;
+    const pad2 = Math.floor((boxWidth - scoreStr.length) / 2);
+    if (midRow >= 0 && midRow < grid.length) {
+      for (let i = 0; i < scoreStr.length; i++) {
+        const col = midCol + pad2 + i;
+        if (col >= 0 && col < grid[midRow].length) {
+          grid[midRow][col] = { char: scoreStr[i], fg: subtitleFg, bg: labelBg };
+        }
+      }
+    }
+
+    const pad3 = Math.floor((boxWidth - line2.length) / 2);
+    if (midRow + 1 >= 0 && midRow + 1 < grid.length) {
+      for (let i = 0; i < line2.length; i++) {
+        const col = midCol + pad3 + i;
+        if (col >= 0 && col < grid[midRow + 1].length) {
+          grid[midRow + 1][col] = { char: line2[i], fg: subtitleFg, bg: labelBg };
+        }
+      }
+    }
+  }
+
+  private applyHelpOverlay(gameState: GameRenderState): void {
+    const grid = gameState.grid;
+    if (grid.length === 0 || grid[0].length === 0) return;
+
+    const dimFg = { mode: 'palette' as const, value: 238 };
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.char !== ' ') cell.fg = dimFg;
+      }
+    }
+
+    const lines = [
+      '┌──── CONTROLS ─────┐',
+      '│ Esc    Pause/Back  │',
+      '│ M      Menu        │',
+      '│ R      Restart     │',
+      '│ P      Pause (CLI) │',
+      '│ X      Hide panel  │',
+      '│ H      This help   │',
+      '│ F      Flag (Mine) │',
+      '│ ↑↓←→   Move        │',
+      '│ Space  Action      │',
+      '│                    │',
+      '│ Any key to close   │',
+      '└────────────────────┘',
+    ];
+
+    const boxBg = { mode: 'palette' as const, value: 236 };
+    const boxFg = { mode: 'palette' as const, value: 15 };
+    const startRow = Math.max(0, Math.floor((grid.length - lines.length) / 2));
+
+    for (let i = 0; i < lines.length; i++) {
+      const row = startRow + i;
+      if (row >= grid.length) break;
+      const line = lines[i];
+      const startCol = Math.max(0, Math.floor((grid[0].length - line.length) / 2));
+      for (let j = 0; j < line.length; j++) {
+        const col = startCol + j;
+        if (col >= grid[row].length) break;
+        grid[row][col] = { char: line[j], fg: boxFg, bg: boxBg };
+      }
     }
   }
 
   private buildStatusBar(gameState: GameRenderState): string {
     const toggle = this.toggleKeyLabel();
     if (this.inMenu) {
-      return ` Tab:Switch  Esc:Hide | ${toggle}`;
+      return ` ↑↓:Select | Enter:Play | Tab:Switch | Esc:Hide | ${toggle}`;
     }
 
-    const mod = this.configManager.get('modifierKey') === 'ctrl' ? '^' : 'M-';
     const hi = this.currentGameId ? this.highScores.getHighScore(this.currentGameId) : 0;
     const hiStr = hi > 0 ? ` Hi:${hi}` : '';
 
@@ -505,15 +654,16 @@ export class Orchestrator {
       if (Date.now() < this.celebrationEndTime) {
         return ` ★ NEW HIGH SCORE! ★  ${gameState.score}`;
       }
-      return ` Esc/M:Menu R:New ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
+      return ` Esc,M:Menu | R:New | ${toggle}:Hide | OVER ${gameState.score}${hiStr}`;
     }
     if (gameState.status === 'paused') {
-      if (this.escapePaused) {
-        return ` Esc:Menu P:Resume ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
+      if (this.stateMachine.state === AppState.ESC_PAUSED) {
+        return ` Esc:Menu | P:Resume | ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
       }
-      return ` Focus: Terminal | ${toggle}: Resume | ⏸  ${gameState.score}${hiStr}`;
+      return ` Focus: Terminal | ${toggle}:Resume | ⏸  ${gameState.score}${hiStr}`;
     }
-    return ` Esc:Pause M:Menu ${toggle}:Hide ${mod}←→:Size | ${gameState.score}${hiStr}`;
+    const modLabel = this.configManager.get('modifierKey') === 'ctrl' ? 'Ctrl' : 'Alt';
+    return ` Esc:Pause | M:Menu | ${toggle}:Hide | ${modLabel}+←→:Resize | ${gameState.score}${hiStr}`;
   }
 
   private toggleKeyLabel(): string {

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { spawnSync } from 'child_process';
 import { Orchestrator } from './orchestrator';
 import { findGame, getGameList } from './game-registry';
@@ -250,7 +251,31 @@ function main(): void {
 
   const configManager = new ConfigManager();
   const toggleLabel = configManager.get('toggleKey') === 'f12' ? 'F12' : 'Ctrl+]';
-  process.stderr.write(`splitgame: press ${toggleLabel} to play | splitgame --help for more\n`);
+
+  const firstRunMarker = path.join(os.homedir(), '.splitgame', '.first-run-shown');
+  let isFirstRun = false;
+  try {
+    fs.accessSync(firstRunMarker);
+  } catch {
+    isFirstRun = true;
+  }
+
+  if (isFirstRun) {
+    process.stderr.write('\n');
+    process.stderr.write('  splitgame is ready!\n');
+    process.stderr.write(`  Press ${toggleLabel} to open the game panel.\n`);
+    process.stderr.write('  Use arrow keys to pick a game, Enter to start.\n');
+    process.stderr.write('  Esc to pause/back, P to pause and use CLI.\n');
+    process.stderr.write('  splitgame --help for all options.\n');
+    process.stderr.write('\n');
+    try {
+      fs.mkdirSync(path.dirname(firstRunMarker), { recursive: true });
+      fs.writeFileSync(firstRunMarker, '', 'utf-8');
+    } catch {}
+  } else {
+    process.stderr.write(`splitgame: press ${toggleLabel} to play | splitgame --help for more\n`);
+  }
+
   const orchestrator = new Orchestrator({ command, args: commandArgs, gameId }, configManager);
   orchestrator.start();
 }

@@ -6,6 +6,8 @@
 
 Your AI agent is writing code. Your build is running. Your deploy is rolling out. Instead of staring at a terminal, press **F12** and play a game — right there, in a split panel next to your work. When the task finishes, press **F12** again and you're back. Zero context switch.
 
+**Works with every CLI tool** — Claude Code, Gemini CLI, GitHub Copilot CLI, Aider, or any command you run in a terminal. splitgame wraps your session and adds a game panel on the side. Your workflow stays exactly the same; you just get games alongside it.
+
 ## Get Started
 
 ```bash
@@ -109,10 +111,15 @@ Don't want the auto-launch? Wrap any command manually:
 
 ```bash
 splitgame claude              # Play while Claude Code works
+splitgame gemini              # Play while Gemini CLI works
+splitgame gh copilot          # Play alongside GitHub Copilot CLI
+splitgame aider               # Play while Aider codes
 splitgame npm run dev         # Play while dev server runs
 splitgame python train.py     # Play while your model trains
 splitgame cargo build         # Play while Rust compiles
 ```
+
+Any command that runs in a terminal works with splitgame — AI agents, build tools, REPLs, you name it.
 
 ## CLI Reference
 

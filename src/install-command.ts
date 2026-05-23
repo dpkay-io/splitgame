@@ -29,7 +29,7 @@ function handleWindowsInstall(): void {
       process.stdout.write(`Backup:   ${result.backupPath}\n\n`);
       process.stdout.write('Patched profiles:\n');
       for (const p of result.patched) {
-        process.stdout.write(`  ${p.name}  (${p.installedCommandline})\n`);
+        process.stdout.write(`  ${p.name}\n`);
       }
       process.stdout.write('\nTo undo: splitgame uninstall\n\n');
       return;
@@ -40,11 +40,10 @@ function handleWindowsInstall(): void {
 
     process.stdout.write('Profiles:\n');
     for (const p of result.patched) {
-      const original = p.originalCommandline ?? '(default)';
-      process.stdout.write(`  [x] ${p.name.padEnd(30)} ${original} -> ${p.installedCommandline}\n`);
+      process.stdout.write(`  [x] ${p.name}\n`);
     }
     for (const s of result.skipped) {
-      process.stdout.write(`  [ ] ${s.name.padEnd(30)} (skipped: ${s.reason})\n`);
+      process.stdout.write(`  [ ] ${s.name} (${s.reason})\n`);
     }
 
     process.stdout.write('\nDone! Open a new terminal tab to start with splitgame.\n\n');

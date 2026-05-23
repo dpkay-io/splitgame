@@ -49,7 +49,7 @@ function authenticate(client: net.Socket, token: string): Promise<void> {
 }
 
 describe('MCP Integration', () => {
-  const PORT_FILE = path.join(os.homedir(), '.splitgame', 'ipc-port');
+  const PORT_FILE = path.join(os.homedir(), '.splitgame', `ipc-port-${process.pid}`);
   let orchestrator: Orchestrator;
 
   beforeEach(() => {

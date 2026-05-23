@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-splitgame — a Node.js CLI that wraps any command in a split-terminal with a game panel. **Primary target: Claude Code CLI** (`splitgame claude`), but works with any command. The child process runs on the left; the game renders on the right. Toggle key (default: F12) shows/hides the game panel. Starts in minimized mode (fullscreen child terminal). Running `splitgame` with no arguments prints usage help and exits.
+splitgame — a Node.js CLI that wraps any command in a split-terminal with a game panel. **Primary target: Claude Code CLI** (`splitgame claude`), but works with any command. The child process runs on the left; the game renders on the right. Toggle key (default: F12) shows/hides the game panel. Starts in minimized mode (fullscreen child terminal). Running `splitgame` with no arguments launches a default shell (PowerShell on Windows, `$SHELL` on Unix).
 
 **Toggle key choice:** Default is `f12` because it doesn't conflict with Claude Code CLI keybindings. `ctrl+]` is also available. Both are safe — neither conflicts with Claude Code CLI or standard readline shortcuts.
 

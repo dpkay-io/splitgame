@@ -13,7 +13,7 @@ const NUMBER_COLORS: ANSIColor[] = [
   { mode: 'palette', value: 12 },   // 4 — dark blue
   { mode: 'palette', value: 9 },    // 5 — dark red
   { mode: 'palette', value: 6 },    // 6 — cyan
-  { mode: 'palette', value: 0 },    // 7 — black
+  { mode: 'palette', value: 245 },   // 7 — gray (visible on dark terminals)
   { mode: 'palette', value: 8 },    // 8 — gray
 ];
 
@@ -177,7 +177,7 @@ export class MinesweeperGame implements IGame {
     const secs = totalSec % 60;
     const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
 
-    let statusMessage = `Mines: ${this.mineCount} | Flags: ${this.flagCount} | ${timeStr}`;
+    let statusMessage = `Mines: ${this.mineCount} | Flags: ${this.flagCount} | F:Flag | ${timeStr}`;
     let status: 'playing' | 'paused' | 'gameover' = 'playing';
 
     if (this._gameOver) {
@@ -188,9 +188,16 @@ export class MinesweeperGame implements IGame {
       statusMessage = 'PAUSED - Ctrl+Space to resume';
     }
 
+    const totalSafe = this.cols * this.rows - this.mineCount;
+    const percentage = totalSafe > 0 ? this.revealedCount / totalSafe : 0;
+    let finalScore = Math.round(percentage * 1000);
+    if (this._won) {
+      finalScore += Math.max(0, 300 - Math.floor(this.elapsedMs / 1000));
+    }
+
     return {
       grid: out,
-      score: this.revealedCount,
+      score: finalScore,
       status,
       statusMessage,
     };

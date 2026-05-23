@@ -11,6 +11,7 @@ interface Pipe {
   x: number;       // column position (float, scrolls left)
   gapTop: number;   // top row of the gap (inclusive)
   gapBottom: number; // bottom row of the gap (inclusive)
+  gapSize: number;   // gap size at time of creation (for resize)
   scored: boolean;   // whether the bird has already passed this pipe
 }
 
@@ -21,6 +22,7 @@ const TERMINAL_VELOCITY = 4;
 const TICK_INTERVAL_MS = 80;
 const PIPE_SPACING = 18; // columns between pipe spawns
 const GAP_SIZE = 5;
+const PIPE_WIDTH = 2;
 
 export class FlappyBirdGame implements IGame {
   readonly name = 'Flappy Bird';
@@ -47,8 +49,9 @@ export class FlappyBirdGame implements IGame {
     if (this._paused || this._gameOver || !this.started) return;
 
     this.tickAccumulator += deltaMs;
-    while (this.tickAccumulator >= TICK_INTERVAL_MS) {
-      this.tickAccumulator -= TICK_INTERVAL_MS;
+    const interval = Math.max(50, TICK_INTERVAL_MS - this.score * 2);
+    while (this.tickAccumulator >= interval) {
+      this.tickAccumulator -= interval;
       this.step();
       if (this._gameOver) break;
     }
@@ -95,11 +98,13 @@ export class FlappyBirdGame implements IGame {
 
     // Pipes
     for (const pipe of this.pipes) {
-      const col = Math.round(pipe.x);
-      if (col < 0 || col >= this.width) continue;
-      for (let row = 0; row < playableHeight; row++) {
-        if (row < pipe.gapTop || row > pipe.gapBottom) {
-          grid[row][col] = { char: '█', fg: GREEN, bg: DEFAULT };
+      for (let pw = 0; pw < PIPE_WIDTH; pw++) {
+        const col = Math.round(pipe.x) + pw;
+        if (col < 0 || col >= this.width) continue;
+        for (let row = 0; row < playableHeight; row++) {
+          if (row < pipe.gapTop || row > pipe.gapBottom) {
+            grid[row][col] = { char: '█', fg: GREEN, bg: DEFAULT };
+          }
         }
       }
     }
@@ -147,7 +152,7 @@ export class FlappyBirdGame implements IGame {
       this.birdY *= ratio;
       for (const pipe of this.pipes) {
         pipe.gapTop = Math.round(pipe.gapTop * ratio);
-        pipe.gapBottom = pipe.gapTop + GAP_SIZE - 1;
+        pipe.gapBottom = pipe.gapTop + pipe.gapSize - 1;
       }
     }
   }
@@ -200,7 +205,7 @@ export class FlappyBirdGame implements IGame {
     }
 
     // Remove pipes that scrolled off screen
-    this.pipes = this.pipes.filter(p => p.x >= -1);
+    this.pipes = this.pipes.filter(p => p.x >= -PIPE_WIDTH);
 
     // Spawn new pipes
     this.distanceSinceLastPipe += 1;
@@ -212,7 +217,7 @@ export class FlappyBirdGame implements IGame {
     // Scoring: bird passes a pipe
     const birdRow = Math.round(this.birdY);
     for (const pipe of this.pipes) {
-      if (!pipe.scored && Math.round(pipe.x) < BIRD_COL) {
+      if (!pipe.scored && Math.round(pipe.x) + PIPE_WIDTH - 1 < BIRD_COL) {
         pipe.scored = true;
         this.score += 1;
       }
@@ -220,26 +225,30 @@ export class FlappyBirdGame implements IGame {
 
     // Collision with pipes
     for (const pipe of this.pipes) {
-      const pipeCol = Math.round(pipe.x);
-      if (pipeCol !== BIRD_COL) continue;
-      if (birdRow < pipe.gapTop || birdRow > pipe.gapBottom) {
-        this._gameOver = true;
-        return;
+      for (let pw = 0; pw < PIPE_WIDTH; pw++) {
+        const pipeCol = Math.round(pipe.x) + pw;
+        if (pipeCol !== BIRD_COL) continue;
+        if (birdRow < pipe.gapTop || birdRow > pipe.gapBottom) {
+          this._gameOver = true;
+          return;
+        }
       }
     }
   }
 
   private spawnPipe(): void {
     const playableHeight = this.height - 1;
+    const gapSize = Math.max(3, GAP_SIZE - Math.floor(this.score / 5));
     const minGapTop = 1;
-    const maxGapTop = playableHeight - GAP_SIZE - 1;
+    const maxGapTop = playableHeight - gapSize - 1;
     if (maxGapTop <= minGapTop) return; // too small to fit a pipe
 
     const gapTop = minGapTop + Math.floor(Math.random() * (maxGapTop - minGapTop + 1));
     this.pipes.push({
       x: this.width - 1,
       gapTop,
-      gapBottom: gapTop + GAP_SIZE - 1,
+      gapBottom: gapTop + gapSize - 1,
+      gapSize,
       scored: false,
     });
   }
