@@ -35,7 +35,7 @@ export class HighScoreManager {
   }
 
   submit(gameName: string, score: number): boolean {
-    if (score <= 0) return false;
+    if (score < 0) return false;
     if (!this.data[gameName]) this.data[gameName] = [];
 
     const entries = this.data[gameName];

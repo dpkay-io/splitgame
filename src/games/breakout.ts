@@ -164,6 +164,12 @@ export class BreakoutGame implements IGame {
       this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
       this.ballY = this.height - 3;
     }
+    // Remove bricks that are now out of bounds so they don't block level completion
+    for (const brick of this.bricks) {
+      if (brick.x + BRICK_WIDTH > this.width || brick.y >= this.height) {
+        brick.alive = false;
+      }
+    }
   }
 
   isPaused(): boolean { return this._paused; }
@@ -221,21 +227,21 @@ export class BreakoutGame implements IGame {
   }
 
   private moveBall(): void {
-    const nextX = this.ballX + this.ballDx;
-    const nextY = this.ballY + this.ballDy;
-
     // Side walls
-    if (nextX < 0 || nextX >= this.width) {
+    if (this.ballX + this.ballDx < 0 || this.ballX + this.ballDx >= this.width) {
       this.ballDx = -this.ballDx;
     }
 
     // Top wall
-    if (nextY < 0) {
+    if (this.ballY + this.ballDy < 0) {
       this.ballDy = -this.ballDy;
     }
 
-    // Below screen — lose life
-    if (nextY >= this.height) {
+    const nextX = this.ballX + this.ballDx;
+    const nextY = this.ballY + this.ballDy;
+
+    // Below paddle — lose life
+    if (nextY >= this.height - 1) {
       this.lives--;
       if (this.lives <= 0) {
         this._gameOver = true;
@@ -275,13 +281,13 @@ export class BreakoutGame implements IGame {
     // Check destination cell first, then the two intermediate cells
     // (horizontal neighbor and vertical neighbor) to catch corner-cutting
     let hitBrick = this.checkBrickCollision(rnx, rny);
-    let reflectAxis: 'x' | 'y' | 'both' = 'y';
+    let reflectAxis: 'x' | 'y' = 'y';
     if (hitBrick) {
       // Determine reflection from previous position relative to brick
       const brickLeft = hitBrick.x;
       const brickRight = hitBrick.x + BRICK_WIDTH - 1;
       if (rbx < brickLeft || rbx > brickRight) {
-        reflectAxis = rby === hitBrick.y ? 'both' : 'x';
+        reflectAxis = 'x';
       } else {
         reflectAxis = 'y';
       }
@@ -307,10 +313,9 @@ export class BreakoutGame implements IGame {
       hitBrick.alive = false;
       this.score += 10;
 
-      if (reflectAxis === 'x' || reflectAxis === 'both') {
+      if (reflectAxis === 'x') {
         this.ballDx = -this.ballDx;
-      }
-      if (reflectAxis === 'y' || reflectAxis === 'both') {
+      } else {
         this.ballDy = -this.ballDy;
       }
 

@@ -78,7 +78,7 @@ Press **P** or **Ctrl+Space** to pause. The game panel stays visible, but your k
 
 **Esc** is context-aware — it always does the most natural "back" action:
 
-- **Playing** > Esc > soft pause (any game key resumes)
+- **Playing** > Esc > soft pause (Space/Enter resumes)
 - **Soft-paused** > Esc > game menu
 - **Menu** > Esc > hide game panel
 - **Game over** > Esc > game menu

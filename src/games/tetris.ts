@@ -195,6 +195,7 @@ export class TetrisGame implements IGame {
     const pos: Point = { x: Math.floor(BOARD_WIDTH / 2), y: 1 };
 
     this.current = { type, blocks, pos };
+    this.dropAccumulator = 0;
 
     if (!this.isValidPosition(this.current.blocks, this.current.pos)) {
       this._gameOver = true;

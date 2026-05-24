@@ -82,7 +82,6 @@ export class Game2048 implements IGame {
         this.pause();
         break;
       case 'reset':
-      case 'space':
         this.reset();
         break;
     }

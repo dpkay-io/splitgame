@@ -12,7 +12,7 @@ splitgame — a Node.js CLI that wraps any command in a split-terminal with a ga
 
 **Key bindings (during gameplay):** Esc=progressive back (pause→menu→hide), M=Menu, X=Hide, R=Restart, P or Ctrl+Space=Pause (focus to CLI), Ctrl+C=Hide, Modifier+←→=Resize panel. Toggle key, modifier key, and game panel width are all configurable.
 
-**Escape key UX:** Esc acts as a context-aware "back" action. Playing → Esc → soft pause (focus stays on game, any gameplay key resumes). Esc-paused → Esc → menu. Menu → Esc → minimize. Game over → Esc → menu. This is separate from P-pause, which transitions to GAME_PAUSED and routes focus to the child terminal for CLI interaction.
+**Escape key UX:** Esc acts as a context-aware "back" action. Playing → Esc → soft pause (focus stays on game, Space/Enter resumes). Esc-paused → Esc → menu. Menu → Esc → minimize. Game over → Esc → menu. This is separate from P-pause, which transitions to GAME_PAUSED and routes focus to the child terminal for CLI interaction.
 
 **Paused-state focus (P-pause):** When the game is paused via P/Ctrl+Space, input routes to the child terminal (not the game). The game panel remains visible in split view but the user can interact with their CLI. Only the toggle key resumes the game and switches focus back.
 
@@ -65,7 +65,7 @@ Both platforms: backs up the original to `~/.splitgame/backups/`, writes an inst
 
 **Orchestrator** (`src/orchestrator.ts`) is the central coordinator. It owns all components and wires them together. It manages the render loop (33ms interval), signal handling, resize events, screen lifecycle, game selection, and high score submission. Accepts `OrchestratorOptions` with optional `gameId` to skip the menu.
 
-**StateMachine** (`src/state.ts`) governs app state via a transition table. States: `GAME_MINIMIZED` (default) → `GAME_ACTIVE` ↔ `GAME_PAUSED` → `EXITING`. Input focus (`CHILD` vs `GAME`) is derived from state — only `GAME_ACTIVE` routes input to the game. `GAME_PAUSED` keeps the game panel visible but routes input to the child, allowing CLI interaction while paused. Toggle key resumes the game.
+**StateMachine** (`src/state.ts`) governs app state via a transition table. States: `GAME_MINIMIZED` (default) → `GAME_ACTIVE` ↔ `GAME_PAUSED` / `ESC_PAUSED` → `EXITING`. Input focus (`CHILD` vs `GAME`) is derived from state — `GAME_ACTIVE` and `ESC_PAUSED` route input to the game, all other states route to the child. `GAME_PAUSED` keeps the game panel visible but routes input to the child, allowing CLI interaction while paused. Toggle key resumes the game from `GAME_PAUSED`, but minimizes from `ESC_PAUSED`.
 
 **ConfigManager** (`src/config.ts`) persists user settings to `~/.splitgame/config.json`. Configurable: `toggleKey` (f12, ctrl+]), `modifierKey` (ctrl, alt), `gameWidthPercent` (20–80). Default toggle is `f12`. Silently falls back to defaults on missing/corrupt file.
 

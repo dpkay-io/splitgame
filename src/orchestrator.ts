@@ -10,6 +10,7 @@ import { ConfigManager, ConfigKey } from './config';
 import { createGame, findGame, getDefaultGameId, getGameList } from './game-registry';
 import { AppState, StateTransition, IGame, GameRenderState } from './types';
 import { IpcServer, GameBridge, CompactGameState, MoveResult } from './ipc-server';
+import { checkForUpdate } from './version-checker';
 import * as ansi from './utils/ansi';
 
 export interface OrchestratorOptions {
@@ -142,6 +143,8 @@ export class Orchestrator {
       process.stderr.write(`splitgame: IPC server failed to start: ${err instanceof Error ? err.message : err}\n`);
     });
 
+    checkForUpdate().then((info) => this.gameMenu.setUpdateInfo(info)).catch(() => {});
+
     this.inputRouter.start();
     this.startRenderLoop();
   }
@@ -156,6 +159,9 @@ export class Orchestrator {
   private onChildInputData(data: Buffer): void {
     if (this.scrolledBack) {
       this.exitScrollback();
+    } else if (this.emulator.isScrolledBack) {
+      this.emulator.scrollToBottom();
+      this.emulator.markDirty();
     }
     this.ptyManager.write(data.toString());
   }
@@ -166,20 +172,15 @@ export class Orchestrator {
   }
 
   private onScroll(delta: number): void {
-    if (this.stateMachine.state !== AppState.GAME_MINIMIZED) return;
+    const state = this.stateMachine.state;
+    if (state === AppState.GAME_MINIMIZED || state === AppState.EXITING) return;
 
     if (delta < 0) {
       this.emulator.scrollUp(Math.abs(delta));
-      this.scrolledBack = true;
-      this.emulator.markDirty();
     } else {
       this.emulator.scrollDown(delta);
-      if (!this.emulator.isScrolledBack) {
-        this.exitScrollback();
-      } else {
-        this.emulator.markDirty();
-      }
     }
+    this.emulator.markDirty();
   }
 
   private exitScrollback(): void {
@@ -457,7 +458,6 @@ export class Orchestrator {
         this.gameEngine.resize(geo.rightWidth, geo.height - 1);
         this.gameEngine.resume();
         this.gameEngine.start();
-        this.lastScoreSubmitted = false;
         process.stdout.write(ansi.clearScreen());
         this.renderer.invalidate();
         break;
@@ -666,7 +666,7 @@ export class Orchestrator {
     }
     if (gameState.status === 'paused') {
       if (this.stateMachine.state === AppState.ESC_PAUSED) {
-        return ` Esc:Menu | P:Resume | ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
+        return ` Esc:Menu | Space:Resume | ${toggle}:Hide | ⏸  ${gameState.score}${hiStr}`;
       }
       return ` Focus: Terminal | ${toggle}:Resume | ⏸  ${gameState.score}${hiStr}`;
     }
@@ -773,14 +773,11 @@ export class Orchestrator {
 
       getAvailableGames: () => {
         if (!this.cachedGameInfo) {
-          this.cachedGameInfo = getGameList().map(g => {
-            const instance = createGame(g.id);
-            return {
-              id: g.id,
-              name: g.name,
-              supportsExternalMoves: !!instance.supportsExternalMoves,
-            };
-          });
+          this.cachedGameInfo = getGameList().map(g => ({
+            id: g.id,
+            name: g.name,
+            supportsExternalMoves: !!g.supportsExternalMoves,
+          }));
         }
         return this.cachedGameInfo;
       },
@@ -801,6 +798,9 @@ export class Orchestrator {
           this.applyState();
         } else if (appState === AppState.GAME_PAUSED) {
           this.stateMachine.transition(StateTransition.TOGGLE);
+          this.applyState();
+        } else if (appState === AppState.ESC_PAUSED) {
+          this.stateMachine.transition(StateTransition.RESUME);
           this.applyState();
         }
 

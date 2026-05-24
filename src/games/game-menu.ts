@@ -1,7 +1,8 @@
 import { IGame, GameRenderState, GameCell, ANSIColor } from '../types';
-import { getGameList, createGame, GameInfo } from '../game-registry';
+import { getGameList, GameInfo } from '../game-registry';
 import { HighScoreManager } from '../high-scores';
 import { ConfigManager, ConfigKey, CONFIG_KEYS } from '../config';
+import { UpdateInfo } from '../version-checker';
 
 const DEFAULT: ANSIColor = { mode: 'default', value: 0 };
 const WHITE: ANSIColor = { mode: 'palette', value: 15 };
@@ -14,6 +15,8 @@ const GREEN: ANSIColor = { mode: 'palette', value: 10 };
 const MAGENTA: ANSIColor = { mode: 'palette', value: 13 };
 const TAB_ACTIVE_BG: ANSIColor = { mode: 'palette', value: 238 };
 const TAB_INACTIVE_FG: ANSIColor = { mode: 'palette', value: 245 };
+
+const RED: ANSIColor = { mode: 'palette', value: 9 };
 
 const TAB_NAMES = ['Games', 'High Scores', 'Config'];
 
@@ -38,12 +41,17 @@ export class GameMenu implements IGame {
   private externalMovesCache: Map<string, boolean> = new Map();
   private gamesScrollOffset = 0;
   private scoresScrollOffset = 0;
+  private updateInfo: UpdateInfo | null = null;
 
   constructor(
     private highScores?: HighScoreManager,
     private configManager?: ConfigManager,
     private onConfigChanged?: (key: ConfigKey) => void,
   ) {}
+
+  setUpdateInfo(info: UpdateInfo): void {
+    this.updateInfo = info;
+  }
 
   get selectedGame(): GameInfo | null {
     return this._selected;
@@ -70,8 +78,7 @@ export class GameMenu implements IGame {
   private refreshExternalMovesCache(): void {
     this.externalMovesCache.clear();
     for (const game of this.games) {
-      const instance = createGame(game.id);
-      this.externalMovesCache.set(game.id, !!instance.supportsExternalMoves);
+      this.externalMovesCache.set(game.id, !!game.supportsExternalMoves);
     }
   }
 
@@ -303,6 +310,28 @@ export class GameMenu implements IGame {
       if (indicatorRow < this.height) {
         this.writeText(grid, indicatorRow, indicator, DARK_GRAY, DEFAULT);
       }
+    }
+
+    this.renderVersionInfo(grid);
+  }
+
+  private renderVersionInfo(grid: GameCell[][]): void {
+    if (!this.updateInfo) return;
+
+    const { currentVersion, updateAvailable, latestVersion } = this.updateInfo;
+
+    if (updateAvailable && latestVersion) {
+      const updateRow = this.height - 3;
+      const cmdRow = this.height - 2;
+      const versionRow = this.height - 1;
+      if (updateRow > 8) {
+        this.writeText(grid, updateRow, `Update available: v${latestVersion}`, GREEN, DEFAULT);
+        this.writeText(grid, cmdRow, 'npm i -g splitgame', YELLOW, DEFAULT);
+        this.writeText(grid, versionRow, `v${currentVersion}`, DARK_GRAY, DEFAULT);
+      }
+    } else {
+      const versionRow = this.height - 1;
+      this.writeText(grid, versionRow, `v${currentVersion}`, DARK_GRAY, DEFAULT);
     }
   }
 

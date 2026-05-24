@@ -107,7 +107,7 @@ async function ensureConnection(): Promise<net.Socket> {
   throw new Error('Cannot connect to splitgame IPC server');
 }
 
-function ipcCall(method: string, params?: Record<string, unknown>): Promise<any> {
+function ipcCall(method: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<any> {
   return new Promise(async (resolve, reject) => {
     try {
       const socket = await ensureConnection();
@@ -115,7 +115,7 @@ function ipcCall(method: string, params?: Record<string, unknown>): Promise<any>
       const timer = setTimeout(() => {
         pending.delete(id);
         reject(new Error(`IPC call '${method}' timed out`));
-      }, IPC_TIMEOUT_MS);
+      }, timeoutMs ?? IPC_TIMEOUT_MS);
       pending.set(id, {
         resolve: (val: any) => { clearTimeout(timer); resolve(val); },
         reject: (err: Error) => { clearTimeout(timer); reject(err); },
@@ -201,7 +201,7 @@ IMPORTANT: Do NOT simulate or describe a game in text. Use the MCP tools to inte
     {},
     async () => {
       try {
-        const state = await ipcCall('wait_for_turn', { timeoutMs: 30000 });
+        const state = await ipcCall('wait_for_turn', { timeoutMs: 30000 }, 35000);
         if (!state || state.timeout) {
           return { content: [{ type: 'text' as const, text: 'Timeout - player has not moved yet. Call wait_for_turn again to keep waiting.' }] };
         }

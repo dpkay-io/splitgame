@@ -44,10 +44,11 @@ describe('HighScoreManager', () => {
     expect(mgr.getHighScore('snake')).toBe(100);
   });
 
-  it('submit returns false for score <= 0', () => {
+  it('submit returns false for score < 0, allows 0', () => {
     const mgr = new HighScoreManager();
-    expect(mgr.submit('snake', 0)).toBe(false);
     expect(mgr.submit('snake', -5)).toBe(false);
+    expect(mgr.getHighScore('snake')).toBe(0);
+    expect(mgr.submit('snake', 0)).toBe(true);
     expect(mgr.getHighScore('snake')).toBe(0);
   });
 

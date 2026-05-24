@@ -102,11 +102,9 @@ describe('Game2048', () => {
   });
 
   it('space/reset restarts after game over', () => {
-    // Force game over by accessing the internal state indirectly:
-    // We can't easily force game over without many moves, so just test
-    // that handleInput('space') on a non-game-over state does a reset.
+    // Make a move that may produce score, then reset via public method
     game.handleInput('left');
-    game.handleInput('space');
+    game.reset();
     expect(game.getState().score).toBe(0);
     expect(game.isGameOver()).toBe(false);
   });

@@ -1,6 +1,6 @@
 {
   "name": "splitgame",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Play games in a split terminal alongside Claude and other CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",

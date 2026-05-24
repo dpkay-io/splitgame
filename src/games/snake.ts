@@ -115,8 +115,9 @@ export class SnakeGame implements IGame {
   resize(width: number, height: number): void {
     this.width = Math.max(5, width);
     this.height = Math.max(5, height);
+    const headInBounds = this.snake.length > 0 && this.inBounds(this.snake[0]);
     this.snake = this.snake.filter(p => this.inBounds(p));
-    if (this.snake.length === 0) this.reset();
+    if (this.snake.length === 0 || !headInBounds) this.reset();
     else if (!this.inBounds(this.food)) this.spawnFood();
   }
 

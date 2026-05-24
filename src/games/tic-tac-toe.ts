@@ -87,13 +87,17 @@ export class TicTacToeGame implements IGame {
     if (this._paused) {
       statusMessage = 'PAUSED';
     } else if (this._gameOver) {
-      if (this.winner === 'X') statusMessage = 'You win! SPACE:New ↑↓:Difficulty';
+      if (this.winner === 'X') statusMessage = this.opponentMode === 'claude'
+          ? 'You win! SPACE:New'
+          : 'You win! SPACE:New ↑↓:Difficulty';
       else if (this.winner === 'O') {
         statusMessage = this.opponentMode === 'claude'
           ? 'Claude wins! SPACE:New'
           : 'AI wins! SPACE:New ↑↓:Difficulty';
       }
-      else statusMessage = 'Draw! SPACE:New ↑↓:Difficulty';
+      else statusMessage = this.opponentMode === 'claude'
+          ? 'Draw! SPACE:New'
+          : 'Draw! SPACE:New ↑↓:Difficulty';
     } else if (this._waitingForClaude) {
       statusMessage = 'Waiting for Claude...';
     } else if (!this.movesMade && this.opponentMode !== 'claude') {
@@ -169,7 +173,7 @@ export class TicTacToeGame implements IGame {
   }
 
   externalMove(move: string): boolean {
-    if (!this._waitingForClaude || this._gameOver) return false;
+    if (!this._waitingForClaude || this._gameOver || this._paused) return false;
 
     const parts = move.split(',').map(Number);
     if (parts.length !== 2 || parts.some(isNaN)) return false;
