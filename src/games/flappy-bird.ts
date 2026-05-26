@@ -20,8 +20,8 @@ const GRAVITY = 0.4;
 const FLAP_VELOCITY = -3;
 const TERMINAL_VELOCITY = 4;
 const TICK_INTERVAL_MS = 80;
-const PIPE_SPACING = 18; // columns between pipe spawns
-const GAP_SIZE = 5;
+const PIPE_SPACING = 22; // columns between pipe spawns
+const GAP_SIZE = 7;
 const PIPE_WIDTH = 2;
 
 export class FlappyBirdGame implements IGame {
@@ -49,7 +49,7 @@ export class FlappyBirdGame implements IGame {
     if (this._paused || this._gameOver || !this.started) return;
 
     this.tickAccumulator += deltaMs;
-    const interval = Math.max(50, TICK_INTERVAL_MS - this.score * 2);
+    const interval = Math.max(60, TICK_INTERVAL_MS - this.score);
     while (this.tickAccumulator >= interval) {
       this.tickAccumulator -= interval;
       this.step();
@@ -238,10 +238,11 @@ export class FlappyBirdGame implements IGame {
 
   private spawnPipe(): void {
     const playableHeight = this.height - 1;
-    const gapSize = Math.max(3, GAP_SIZE - Math.floor(this.score / 5));
+    const gapSize = Math.min(Math.max(4, GAP_SIZE - Math.floor(this.score / 8)), playableHeight - 3);
+    if (gapSize < 2) return;
     const minGapTop = 1;
     const maxGapTop = playableHeight - gapSize - 1;
-    if (maxGapTop <= minGapTop) return; // too small to fit a pipe
+    if (maxGapTop <= minGapTop) return;
 
     const gapTop = minGapTop + Math.floor(Math.random() * (maxGapTop - minGapTop + 1));
     this.pipes.push({

@@ -13,7 +13,7 @@ const DARK_GRAY: ANSIColor = { mode: 'palette', value: 8 };
 const ROW_COLORS: ANSIColor[] = [RED, YELLOW, GREEN, CYAN, MAGENTA];
 
 const BRICK_WIDTH = 3;
-const PADDLE_WIDTH = 7;
+const MIN_PADDLE_WIDTH = 5;
 const BALL_CHAR = '●';
 const BRICK_CHAR = '█';
 const BRICK_CHARS = ['█', '▓', '▒', '░', '▀'];
@@ -50,6 +50,10 @@ export class BreakoutGame implements IGame {
   private _paused = false;
   private _gameOver = false;
 
+  private get paddleWidth(): number {
+    return Math.max(MIN_PADDLE_WIDTH, Math.min(13, Math.round(this.width * 0.22)) - (this.level - 1));
+  }
+
   init(width: number, height: number): void {
     this.width = Math.max(10, width);
     this.height = Math.max(10, height);
@@ -60,7 +64,7 @@ export class BreakoutGame implements IGame {
     if (this._paused || this._gameOver || this.ballAttached) return;
 
     this.ballAccumulator += Math.min(deltaMs, 100);
-    const tickMs = Math.max(25, BALL_TICK_MS - (this.level - 1) * 5);
+    const tickMs = Math.max(30, BALL_TICK_MS - (this.level - 1) * 3);
     while (this.ballAccumulator >= tickMs) {
       this.ballAccumulator -= tickMs;
       this.moveBall();
@@ -77,11 +81,11 @@ export class BreakoutGame implements IGame {
     switch (key) {
       case 'left':
         this.paddleX = Math.max(0, this.paddleX - 2);
-        if (this.ballAttached) this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
+        if (this.ballAttached) this.ballX = this.paddleX + Math.floor(this.paddleWidth / 2);
         break;
       case 'right':
-        this.paddleX = Math.min(this.width - PADDLE_WIDTH, this.paddleX + 2);
-        if (this.ballAttached) this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
+        this.paddleX = Math.min(this.width - this.paddleWidth, this.paddleX + 2);
+        if (this.ballAttached) this.ballX = this.paddleX + Math.floor(this.paddleWidth / 2);
         break;
       case 'space':
         if (this.ballAttached) this.launchBall();
@@ -118,7 +122,7 @@ export class BreakoutGame implements IGame {
 
     // Paddle
     const paddleY = this.height - 2;
-    for (let i = 0; i < PADDLE_WIDTH; i++) {
+    for (let i = 0; i < this.paddleWidth; i++) {
       const col = this.paddleX + i;
       if (col >= 0 && col < this.width && paddleY >= 0 && paddleY < this.height) {
         grid[paddleY][col] = { char: PADDLE_CHAR, fg: WHITE, bg: DEFAULT };
@@ -155,13 +159,13 @@ export class BreakoutGame implements IGame {
     this.width = Math.max(10, width);
     this.height = Math.max(10, height);
     // Clamp paddle
-    this.paddleX = Math.min(this.paddleX, this.width - PADDLE_WIDTH);
+    this.paddleX = Math.min(this.paddleX, this.width - this.paddleWidth);
     this.paddleX = Math.max(0, this.paddleX);
     // Clamp ball
     this.ballX = Math.min(this.ballX, this.width - 1);
     this.ballY = Math.min(this.ballY, this.height - 1);
     if (this.ballAttached) {
-      this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
+      this.ballX = this.paddleX + Math.floor(this.paddleWidth / 2);
       this.ballY = this.height - 3;
     }
     // Remove bricks that are now out of bounds so they don't block level completion
@@ -189,8 +193,8 @@ export class BreakoutGame implements IGame {
 
   private initLevel(): void {
     this.ballAttached = true;
-    this.paddleX = Math.floor((this.width - PADDLE_WIDTH) / 2);
-    this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
+    this.paddleX = Math.floor((this.width - this.paddleWidth) / 2);
+    this.ballX = this.paddleX + Math.floor(this.paddleWidth / 2);
     this.ballY = this.height - 3;
     this.ballDx = 0;
     this.ballDy = 0;
@@ -255,10 +259,10 @@ export class BreakoutGame implements IGame {
     const paddleY = this.height - 2;
     if (this.ballDy > 0 && Math.round(nextY) === paddleY) {
       const bx = Math.round(nextX);
-      if (bx >= this.paddleX && bx < this.paddleX + PADDLE_WIDTH) {
+      if (bx >= this.paddleX && bx < this.paddleX + this.paddleWidth) {
         this.ballDy = -this.ballDy;
         // Adjust dx based on hit position relative to paddle center
-        const hitPos = (bx - this.paddleX) / (PADDLE_WIDTH - 1); // 0..1
+        const hitPos = (bx - this.paddleX) / (this.paddleWidth - 1); // 0..1
         const offset = hitPos - 0.5; // -0.5..0.5
         this.ballDx = offset * 2.5; // range roughly -1.25..1.25
         // Ensure some horizontal movement
@@ -351,8 +355,8 @@ export class BreakoutGame implements IGame {
   private resetBall(): void {
     this.ballAttached = true;
     this.ballAccumulator = 0;
-    this.paddleX = Math.floor((this.width - PADDLE_WIDTH) / 2);
-    this.ballX = this.paddleX + Math.floor(PADDLE_WIDTH / 2);
+    this.paddleX = Math.floor((this.width - this.paddleWidth) / 2);
+    this.ballX = this.paddleX + Math.floor(this.paddleWidth / 2);
     this.ballY = this.height - 3;
     this.ballDx = 0;
     this.ballDy = 0;

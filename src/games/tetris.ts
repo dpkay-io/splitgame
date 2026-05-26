@@ -54,6 +54,8 @@ interface PlacedCell {
 
 // Scoring table: index 0 unused, 1-4 lines
 const LINE_SCORES = [0, 100, 300, 500, 800];
+const LOCK_DELAY_MS = 200;
+const MAX_LOCK_RESETS = 10;
 
 export class TetrisGame implements IGame {
   readonly name = 'Tetris';
@@ -73,6 +75,9 @@ export class TetrisGame implements IGame {
   private dropAccumulator = 0;
   private bag: PieceType[] = [];
   private nextType: PieceType | null = null;
+  private locking = false;
+  private lockDelayAccumulator = 0;
+  private lockDelayResets = 0;
 
   init(width: number, height: number): void {
     this.panelWidth = Math.max(14, width);
@@ -82,6 +87,20 @@ export class TetrisGame implements IGame {
 
   tick(deltaMs: number): void {
     if (this._paused || this._gameOver || !this.current) return;
+
+    if (this.locking) {
+      if (this.canMoveDown()) {
+        this.locking = false;
+        this.lockDelayAccumulator = 0;
+        this.lockDelayResets = 0;
+      } else {
+        this.lockDelayAccumulator += deltaMs;
+        if (this.lockDelayAccumulator >= LOCK_DELAY_MS) {
+          this.lockPiece();
+        }
+        return;
+      }
+    }
 
     this.dropAccumulator += deltaMs;
     const interval = this.dropInterval();
@@ -107,17 +126,17 @@ export class TetrisGame implements IGame {
 
     switch (key) {
       case 'left':
-        this.tryMove(-1, 0);
+        if (this.tryMove(-1, 0)) this.resetLockDelay();
         break;
       case 'right':
-        this.tryMove(1, 0);
+        if (this.tryMove(1, 0)) this.resetLockDelay();
         break;
       case 'down':
         this.moveDown();
         this.dropAccumulator = 0;
         break;
       case 'up':
-        this.tryRotate();
+        if (this.tryRotate()) this.resetLockDelay();
         break;
       case 'space':
         this.hardDrop();
@@ -162,6 +181,9 @@ export class TetrisGame implements IGame {
     this.level = 1;
     this.linesCleared = 0;
     this.dropAccumulator = 0;
+    this.locking = false;
+    this.lockDelayAccumulator = 0;
+    this.lockDelayResets = 0;
     this.bag = [];
     this.nextType = null;
 
@@ -230,7 +252,11 @@ export class TetrisGame implements IGame {
 
   private moveDown(): void {
     if (!this.tryMove(0, 1)) {
-      this.lockPiece();
+      if (!this.locking) {
+        this.locking = true;
+        this.lockDelayAccumulator = 0;
+        this.lockDelayResets = 0;
+      }
     }
   }
 
@@ -240,8 +266,8 @@ export class TetrisGame implements IGame {
     this.lockPiece();
   }
 
-  private tryRotate(): void {
-    if (!this.current || this.current.type === 'O') return;
+  private tryRotate(): boolean {
+    if (!this.current || this.current.type === 'O') return false;
 
     // Rotate clockwise: (x, y) -> (-y, x)
     const rotated = this.current.blocks.map(b => ({ x: -b.y, y: b.x }));
@@ -249,7 +275,7 @@ export class TetrisGame implements IGame {
     // Try basic rotation
     if (this.isValidPosition(rotated, this.current.pos)) {
       this.current.blocks = rotated;
-      return;
+      return true;
     }
 
     // Basic wall kicks: try shifting left, right, up
@@ -260,14 +286,17 @@ export class TetrisGame implements IGame {
       if (this.isValidPosition(rotated, kickedPos)) {
         this.current.blocks = rotated;
         this.current.pos = kickedPos;
-        return;
+        return true;
       }
     }
-    // Rotation rejected
+    return false;
   }
 
   private lockPiece(): void {
     if (!this.current) return;
+    this.locking = false;
+    this.lockDelayAccumulator = 0;
+    this.lockDelayResets = 0;
     const abs = this.absoluteBlocks(this.current.blocks, this.current.pos);
     const color = PIECE_COLORS[this.current.type];
 
@@ -301,9 +330,22 @@ export class TetrisGame implements IGame {
     }
   }
 
+  private canMoveDown(): boolean {
+    if (!this.current) return false;
+    const newPos = { x: this.current.pos.x, y: this.current.pos.y + 1 };
+    return this.isValidPosition(this.current.blocks, newPos);
+  }
+
+  private resetLockDelay(): void {
+    if (this.locking && this.lockDelayResets < MAX_LOCK_RESETS) {
+      this.lockDelayAccumulator = 0;
+      this.lockDelayResets++;
+    }
+  }
+
   private dropInterval(): number {
-    // Start at 500ms, decrease by 40ms per level, floor at 50ms
-    return Math.max(50, 500 - (this.level - 1) * 40);
+    // Start at 500ms, decrease by 25ms per level, floor at 100ms
+    return Math.max(100, 500 - (this.level - 1) * 25);
   }
 
   // ---- Private: rendering ----
