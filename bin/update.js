@@ -1,54 +1,20 @@
 #!/usr/bin/env node
-// Self-update splitgame without EBUSY errors on Windows.
+// Self-update splitgame without killing running terminal sessions.
 // This file must NOT require anything that loads node-pty (conpty.node),
 // because the whole point is to run without locking that file.
 'use strict';
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const args = process.argv.slice(3); // after "splitgame update"
 const dryRun = args.includes('--dry-run');
+const forceMode = args.includes('--force');
 const version = args.find(a => !a.startsWith('-')) || 'latest';
 
 function log(msg) {
   process.stdout.write(msg + '\n');
-}
-
-function killSplitgameProcesses() {
-  if (process.platform !== 'win32') return;
-
-  const myPid = process.pid;
-  let pids = [];
-  try {
-    const result = execSync(
-      `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='node.exe'\\" | Where-Object { $_.CommandLine -match 'splitgame' -and $_.ProcessId -ne ${myPid} } | Select-Object -ExpandProperty ProcessId"`,
-      { encoding: 'utf8', timeout: 15000 }
-    ).trim();
-    pids = result.split(/\r?\n/).map(s => s.trim()).filter(Boolean).map(Number);
-  } catch (e) {
-    return;
-  }
-
-  if (pids.length === 0) return;
-
-  log(`Stopping ${pids.length} running splitgame process(es)...`);
-  for (const pid of pids) {
-    try { process.kill(pid); } catch (e) {}
-  }
-
-  // Wait for processes to exit and release file locks
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    const alive = pids.filter(pid => { try { process.kill(pid, 0); return true; } catch { return false; } });
-    if (alive.length === 0) break;
-    execSync('powershell -NoProfile -Command "Start-Sleep -Milliseconds 500"', { stdio: 'ignore' });
-  }
-
-  // Force-kill any survivors
-  for (const pid of pids) {
-    try { process.kill(pid, 'SIGKILL'); } catch (e) {}
-  }
 }
 
 function cleanupStagingDirs() {
@@ -67,9 +33,54 @@ function cleanupStagingDirs() {
   } catch (e) {}
 }
 
-log('splitgame: preparing update...');
-killSplitgameProcesses();
+function forceUpdateWindows() {
+  const scriptPath = path.join(os.tmpdir(), `splitgame-update-${Date.now()}.ps1`);
+  const script = [
+    "$Host.UI.RawUI.WindowTitle = 'splitgame update'",
+    "Write-Host ''",
+    "Write-Host 'Stopping running splitgame sessions...' -ForegroundColor Yellow",
+    "Write-Host ''",
+    "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue |",
+    "  Where-Object { $_.CommandLine -match 'splitgame' } |",
+    "  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+    "Start-Sleep -Seconds 3",
+    `Write-Host "Installing splitgame@${version}..." -ForegroundColor Cyan`,
+    "Write-Host ''",
+    `& npm install -g splitgame@${version}`,
+    "Write-Host ''",
+    "if ($LASTEXITCODE -eq 0) {",
+    "  Write-Host 'Updated successfully! Open a new terminal tab to use the new version.' -ForegroundColor Green",
+    "} else {",
+    "  Write-Host 'Update failed. Try closing ALL terminals and running:' -ForegroundColor Red",
+    `  Write-Host "  npm install -g splitgame@${version}" -ForegroundColor White`,
+    "}",
+    "Write-Host ''",
+    "Write-Host 'Press any key to close...' -ForegroundColor Gray",
+    "$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')",
+    "Remove-Item -Path $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue",
+  ].join('\n');
+
+  if (dryRun) {
+    log(`Dry run: would launch force update script at ${scriptPath}`);
+    process.exit(0);
+  }
+
+  fs.writeFileSync(scriptPath, script, 'utf-8');
+  spawn('cmd.exe', ['/c', 'start', '""', 'powershell.exe', '-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', scriptPath], {
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
+
+  log('Force update launched in a new window.');
+  log('This terminal may close. Re-open a terminal after the update completes.');
+  process.exit(0);
+}
+
 cleanupStagingDirs();
+
+if (process.platform === 'win32' && forceMode) {
+  forceUpdateWindows();
+}
 
 if (dryRun) {
   log(`Dry run: would run npm install -g splitgame@${version}`);
@@ -81,7 +92,17 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const child = spawn(npm, ['install', '-g', `splitgame@${version}`], { stdio: 'inherit' });
 child.on('exit', (code) => {
   if (code === 0) {
-    log('\nsplitgame: updated. Open a new terminal tab to use the new version.');
+    log('\nsplitgame: updated successfully. Open a new terminal tab to use the new version.');
+    process.exit(0);
+  }
+
+  log('');
+  if (process.platform === 'win32') {
+    log('Update failed — files may be locked by running terminal sessions.');
+    log('');
+    log('Options:');
+    log('  1. Close other terminal windows/tabs, then retry: splitgame update');
+    log('  2. Force update (opens a new window, closes terminals): splitgame update --force');
   }
   process.exit(code ?? 1);
 });

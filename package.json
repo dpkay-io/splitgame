@@ -1,6 +1,6 @@
 {
   "name": "splitgame",
-  "version": "0.6.2",
+  "version": "0.6.4",
   "description": "Play games in a split terminal alongside Claude and other CLI tools",
   "main": "dist/main.js",
   "types": "dist/main.d.ts",
@@ -11,7 +11,8 @@
   "files": [
     "bin/",
     "dist/",
-    "splitgame.png"
+    "splitgame.png",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",

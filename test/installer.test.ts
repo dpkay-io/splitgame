@@ -348,6 +348,35 @@ describe('TerminalInstaller', () => {
       }
     });
 
+    it('re-patches when manifest exists but settings were externally unpatched', () => {
+      const settingsPath = writeSettings(tempDir, BASE_SETTINGS);
+      const installer = createInstaller(settingsPath);
+
+      const origPath = process.env.PATH;
+      const binDir = path.join(tempDir, 'bin');
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(path.join(binDir, 'splitgame.cmd'), '', { mode: 0o755 });
+      process.env.PATH = `${binDir}${path.delimiter}${origPath}`;
+
+      try {
+        installer.install();
+        expect(installer.getManifest()).not.toBeNull();
+
+        // Simulate settings.json being restored externally (e.g., by preuninstall during upgrade)
+        writeSettings(tempDir, BASE_SETTINGS);
+
+        const result = installer.install();
+        expect(result.alreadyInstalled).toBe(false);
+        expect(result.patched.length).toBeGreaterThan(0);
+
+        const updated = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        const ps = updated.profiles.list.find((p: any) => p.name === 'Windows PowerShell');
+        expect(ps.commandline).toContain('splitgame');
+      } finally {
+        process.env.PATH = origPath;
+      }
+    });
+
     it('does not double-wrap profiles already containing splitgame', () => {
       const settings = {
         profiles: {

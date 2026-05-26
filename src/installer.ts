@@ -107,13 +107,16 @@ export class TerminalInstaller {
 
     const existingManifest = this.getManifest();
     if (existingManifest) {
-      return {
-        settingsPath: existingManifest.settingsPath,
-        backupPath: existingManifest.backupPath,
-        patched: existingManifest.profiles,
-        skipped: [],
-        alreadyInstalled: true,
-      };
+      if (this.isSettingsPatched(settingsPath, existingManifest)) {
+        return {
+          settingsPath: existingManifest.settingsPath,
+          backupPath: existingManifest.backupPath,
+          patched: existingManifest.profiles,
+          skipped: [],
+          alreadyInstalled: true,
+        };
+      }
+      try { fs.unlinkSync(this.manifestPath); } catch {}
     }
 
     const rawContent = fs.readFileSync(settingsPath, 'utf-8');
@@ -227,6 +230,20 @@ export class TerminalInstaller {
       return JSON.parse(raw);
     } catch {
       return null;
+    }
+  }
+
+  private isSettingsPatched(settingsPath: string, manifest: InstallManifest): boolean {
+    try {
+      const content = fs.readFileSync(settingsPath, 'utf-8');
+      return manifest.profiles.some(p => {
+        const bounds = this.findProfileBounds(content, p.guid);
+        if (bounds.start === -1) return false;
+        const profileSlice = content.substring(bounds.start, bounds.end + 1);
+        return profileSlice.includes('splitgame');
+      });
+    } catch {
+      return false;
     }
   }
 
