@@ -41,14 +41,14 @@ describe('setupMcp', () => {
     expect(result.configs).toHaveLength(0);
   });
 
-  it('targets ~/.claude/settings.json for Claude Code', () => {
+  it('targets ~/.claude.json for Claude Code', () => {
     const result = setupMcp(fakeBaseDir);
     const ccConfig = result.configs.find(c => c.name === 'Claude Code');
     expect(ccConfig).toBeDefined();
-    expect(ccConfig!.path).toBe(path.join(fakeHome, '.claude', 'settings.json'));
+    expect(ccConfig!.path).toBe(path.join(fakeHome, '.claude.json'));
   });
 
-  it('creates ~/.claude/settings.json when it does not exist', () => {
+  it('creates ~/.claude.json when it does not exist', () => {
     const result = setupMcp(fakeBaseDir);
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
     expect(ccConfig.status).toBe('configured');
@@ -60,12 +60,10 @@ describe('setupMcp', () => {
     });
   });
 
-  it('adds splitgame to existing settings without clobbering other keys', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    const settingsPath = path.join(settingsDir, 'settings.json');
-    fs.writeFileSync(settingsPath, JSON.stringify({
-      model: 'claude-opus-4-6',
+  it('adds splitgame to existing config without clobbering other keys', () => {
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, JSON.stringify({
+      numStartups: 10,
       mcpServers: { other: { command: 'other-cmd', args: [] } },
     }, null, 2));
 
@@ -73,16 +71,15 @@ describe('setupMcp', () => {
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
     expect(ccConfig.status).toBe('configured');
 
-    const written = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    expect(written.model).toBe('claude-opus-4-6');
+    const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(written.numStartups).toBe(10);
     expect(written.mcpServers.other).toEqual({ command: 'other-cmd', args: [] });
     expect(written.mcpServers.splitgame).toEqual({ command: 'node', args: [mcpServerPath] });
   });
 
   it('returns exists when splitgame already configured', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, JSON.stringify({
       mcpServers: { splitgame: { command: 'node', args: ['/old/path'] } },
     }, null, 2));
 
@@ -90,14 +87,13 @@ describe('setupMcp', () => {
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
     expect(ccConfig.status).toBe('exists');
 
-    const written = JSON.parse(fs.readFileSync(path.join(settingsDir, 'settings.json'), 'utf-8'));
+    const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     expect(written.mcpServers.splitgame.args[0]).toBe('/old/path');
   });
 
   it('force overwrites existing entry with updated path', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, JSON.stringify({
       mcpServers: { splitgame: { command: 'node', args: ['/old/path'] } },
     }, null, 2));
 
@@ -105,29 +101,26 @@ describe('setupMcp', () => {
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
     expect(ccConfig.status).toBe('configured');
 
-    const written = JSON.parse(fs.readFileSync(path.join(settingsDir, 'settings.json'), 'utf-8'));
+    const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     expect(written.mcpServers.splitgame.args[0]).toBe(mcpServerPath);
   });
 
   it('force does not produce duplicate splitgame entries', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    const settingsPath = path.join(settingsDir, 'settings.json');
-    fs.writeFileSync(settingsPath, JSON.stringify({
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, JSON.stringify({
       mcpServers: { splitgame: { command: 'node', args: ['/old/path'] } },
     }, null, 2));
 
     setupMcp(fakeBaseDir, { force: true });
 
-    const raw = fs.readFileSync(settingsPath, 'utf-8');
+    const raw = fs.readFileSync(configPath, 'utf-8');
     const occurrences = raw.split('"splitgame"').length - 1;
     expect(occurrences).toBe(1);
   });
 
   it('returns parse-error for corrupt JSON without force', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'settings.json'), '{corrupt!!!');
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, '{corrupt!!!');
 
     const result = setupMcp(fakeBaseDir);
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
@@ -135,16 +128,14 @@ describe('setupMcp', () => {
   });
 
   it('force recovers from corrupt JSON with backup', () => {
-    const settingsDir = path.join(fakeHome, '.claude');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    const settingsPath = path.join(settingsDir, 'settings.json');
-    fs.writeFileSync(settingsPath, '{corrupt!!!');
+    const configPath = path.join(fakeHome, '.claude.json');
+    fs.writeFileSync(configPath, '{corrupt!!!');
 
     const result = setupMcp(fakeBaseDir, { force: true });
     const ccConfig = result.configs.find(c => c.name === 'Claude Code')!;
     expect(ccConfig.status).toBe('configured');
 
-    const written = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     expect(written.mcpServers.splitgame).toEqual({ command: 'node', args: [mcpServerPath] });
 
     const backupDir = path.join(fakeHome, '.splitgame', 'backups');
@@ -161,8 +152,8 @@ describe('setupMcp', () => {
 
   it('written config is valid JSON with correct structure', () => {
     setupMcp(fakeBaseDir);
-    const settingsPath = path.join(fakeHome, '.claude', 'settings.json');
-    const raw = fs.readFileSync(settingsPath, 'utf-8');
+    const configPath = path.join(fakeHome, '.claude.json');
+    const raw = fs.readFileSync(configPath, 'utf-8');
 
     expect(() => JSON.parse(raw)).not.toThrow();
 

@@ -40,6 +40,8 @@ export class Orchestrator {
   private ipcServer: IpcServer;
   private turnWaiters: Array<(state: CompactGameState | null) => void> = [];
   private claudeOpponent = false;
+  private claudeWasOpponent = false;
+  private gameOverReported = false;
   private cachedGameInfo: Array<{ id: string; name: string; supportsExternalMoves: boolean }> | null = null;
   private passthrough = false;
   private scrolledBack = false;
@@ -323,6 +325,7 @@ export class Orchestrator {
       this.stateMachine.transition(StateTransition.RESUME);
     }
     this.celebrationEndTime = 0;
+    this.gameOverReported = false;
     this.checkAndSubmitScore();
     this.gameEngine.stop();
     const game = createGame(this.currentGameId);
@@ -336,6 +339,14 @@ export class Orchestrator {
     this.gameEngine.init(geo.rightWidth, geo.height - 1);
     this.gameEngine.start();
     this.renderer.invalidate();
+
+    if (this.claudeOpponent && this.turnWaiters.length > 0) {
+      const state = this.buildCompactState();
+      if (state) {
+        const waiters = this.turnWaiters.splice(0);
+        for (const cb of waiters) cb(state);
+      }
+    }
   }
 
   private onConfigChanged(key: ConfigKey): void {
@@ -353,6 +364,10 @@ export class Orchestrator {
   }
 
   private launchGame(gameId: string): void {
+    const shouldAutoSetClaude = this.claudeWasOpponent;
+    this.claudeWasOpponent = false;
+    this.gameOverReported = false;
+
     this.gameEngine.stop();
     let game: IGame;
     try {
@@ -373,6 +388,20 @@ export class Orchestrator {
     this.gameEngine.init(geo.rightWidth, geo.height - 1);
     this.gameEngine.start();
     this.renderer.invalidate();
+
+    if (shouldAutoSetClaude) {
+      if (game.supportsExternalMoves) {
+        this.claudeOpponent = true;
+        if (game.setOpponentMode) game.setOpponentMode('claude');
+        const state = this.buildCompactState();
+        if (state) {
+          const waiters = this.turnWaiters.splice(0);
+          for (const cb of waiters) cb(state);
+        }
+      } else {
+        this.flushTurnWaiters();
+      }
+    }
   }
 
   private switchToMenu(): void {
@@ -380,7 +409,12 @@ export class Orchestrator {
       this.stateMachine.transition(StateTransition.RESUME);
     }
     this.checkAndSubmitScore();
-    this.flushTurnWaiters();
+    const wasClaudeGame = this.claudeOpponent;
+    if (wasClaudeGame) {
+      this.claudeWasOpponent = true;
+    } else {
+      this.flushTurnWaiters();
+    }
     this.helpVisible = false;
     this.gameEngine.stop();
     this.gameMenu.clearSelection();
@@ -467,6 +501,10 @@ export class Orchestrator {
         break;
 
       case AppState.GAME_MINIMIZED:
+        if (this.claudeWasOpponent) {
+          this.claudeWasOpponent = false;
+          this.flushTurnWaiters();
+        }
         this.checkAndSubmitScore();
         this.helpVisible = false;
         this.gameEngine.pause();
@@ -813,8 +851,14 @@ export class Orchestrator {
 
       waitForTurn: (timeoutMs: number): Promise<CompactGameState | null> => {
         const current = this.buildCompactState();
-        if (current && (current.turn === 'claude' || current.status === 'gameover')) {
+        if (current && current.turn === 'claude') {
           return Promise.resolve(current);
+        }
+        if (current && current.status === 'gameover') {
+          if (!this.gameOverReported) {
+            this.gameOverReported = true;
+            return Promise.resolve(current);
+          }
         }
 
         return new Promise((resolve) => {

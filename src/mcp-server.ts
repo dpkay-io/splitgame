@@ -154,8 +154,9 @@ When the user asks you to play a game (e.g. "play tic tac toe", "your turn", "go
 4. If it's your turn (Turn: claude), call make_move with your chosen move
 5. After making a move, call wait_for_turn to wait for the player's next move
 6. Repeat steps 3-5 until the game ends (Status: gameover), then report the result
-7. If wait_for_turn returns "Game ended" — the player left the game. Stop playing and acknowledge.
-8. If the user asks to play again after a game ended, call select_game again to start a new game.
+7. After gameover, call wait_for_turn again — if the player starts a new game, you'll get the new board state automatically. Keep playing!
+8. If wait_for_turn returns "Game ended" — the player left the game. Stop playing and acknowledge.
+9. If the user asks to play again after a game ended, call select_game again to start a new game.
 
 For tic-tac-toe: you are O, the player is X. Moves are "row,col" (0-indexed). Play strategically — try to win! After starting the game, the player moves first — immediately call wait_for_turn.
 
@@ -197,7 +198,7 @@ IMPORTANT: Do NOT simulate or describe a game in text. Use the MCP tools to inte
 
   server.tool(
     'wait_for_turn',
-    'Wait for it to become Claude\'s turn. Blocks until the player makes a move (up to 30s). Use in a loop to play a full game: call wait_for_turn, then make_move, repeat until gameover. Returns null on timeout (call again to keep waiting).',
+    'Wait for it to become Claude\'s turn. Blocks until the player makes a move (up to 30s). Use in a loop: call wait_for_turn, then make_move, repeat. After gameover, call again — if the player starts a new game you\'ll get the new state. Returns null on timeout (call again). Only stop when you get "Game ended".',
     {},
     async () => {
       try {
@@ -207,6 +208,9 @@ IMPORTANT: Do NOT simulate or describe a game in text. Use the MCP tools to inte
         }
         if (state.status === 'ended') {
           return { content: [{ type: 'text' as const, text: 'Game ended. The player returned to the menu. Stop playing.' }] };
+        }
+        if (state.status === 'gameover') {
+          return { content: [{ type: 'text' as const, text: formatGameState(state) + '\n\nGame over! Call wait_for_turn again — the player may start a new game.' }] };
         }
         return { content: [{ type: 'text' as const, text: formatGameState(state) }] };
       } catch (err: any) {

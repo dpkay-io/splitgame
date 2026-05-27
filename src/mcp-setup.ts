@@ -30,7 +30,7 @@ export function setupMcp(baseDir: string, options?: McpSetupOptions): McpSetupRe
   if (!result.mcpServerFound) return result;
 
   const targets = [
-    { path: path.join(os.homedir(), '.claude', 'settings.json'), name: 'Claude Code' },
+    { path: path.join(os.homedir(), '.claude.json'), name: 'Claude Code' },
     {
       path: process.platform === 'win32'
         ? path.join(process.env.APPDATA || '', 'Claude', 'claude_desktop_config.json')

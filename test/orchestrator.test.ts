@@ -2554,4 +2554,229 @@ describe('Orchestrator', () => {
       expect(getPrivate(orchestrator, 'turnWaiters')).toHaveLength(0);
     });
   });
+
+  // ===================================================================
+  // CLAUDE AUTO-CONTINUE AFTER GAMEOVER
+  // ===================================================================
+  describe('claude auto-continue after gameover', () => {
+    function getBridge(orch: Orchestrator): any {
+      return getPrivate(orch, 'ipcServer')._bridge;
+    }
+
+    function setupClaudeGame(orch: Orchestrator): void {
+      const extGame = createMockExternalGame();
+      extGame.setOpponentMode!('claude');
+      (orch as any).gameEngine = {
+        currentGame: extGame,
+        getState: extGame.getState,
+        init: vi.fn(), start: vi.fn(), stop: vi.fn(),
+        handleInput: vi.fn(), resize: vi.fn(),
+        pause: vi.fn(), resume: vi.fn(), reset: vi.fn(),
+        isPaused: false, isGameOver: false,
+      };
+      (orch as any).claudeOpponent = true;
+      (orch as any).inMenu = false;
+      (orch as any).currentGameId = 'tictactoe';
+    }
+
+    function setGameOver(orch: Orchestrator): void {
+      const ge = getPrivate(orch, 'gameEngine');
+      const gameoverState = vi.fn(() => ({
+        grid: [], score: 0, status: 'gameover' as const,
+      }));
+      ge.currentGame.getState = gameoverState;
+      ge.getState = gameoverState;
+      ge.currentGame.isGameOver = vi.fn(() => true);
+      ge.currentGame.getCompactState = vi.fn(() => ({
+        board: 'XOX|OXO|OXO', validMoves: [], turn: null,
+      }));
+    }
+
+    describe('switchToMenu preserves waiters for claude games', () => {
+      it('does not flush waiters when claudeOpponent is true', () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+        callPrivate(orchestrator, 'switchToMenu');
+        expect(cb).not.toHaveBeenCalled();
+        expect(getPrivate(orchestrator, 'turnWaiters')).toHaveLength(1);
+      });
+
+      it('sets claudeWasOpponent when claudeOpponent is true', () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        callPrivate(orchestrator, 'switchToMenu');
+        expect(getPrivate(orchestrator, 'claudeWasOpponent')).toBe(true);
+        expect(getPrivate(orchestrator, 'claudeOpponent')).toBe(false);
+      });
+
+      it('still flushes waiters for non-claude games', () => {
+        orchestrator = createOrchestrator({ gameId: 'snake' });
+        orchestrator.start();
+        (orchestrator as any).claudeOpponent = false;
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+        callPrivate(orchestrator, 'switchToMenu');
+        expect(cb).toHaveBeenCalledWith(expect.objectContaining({ status: 'ended' }));
+      });
+    });
+
+    describe('launchGame auto-sets claude for compatible games', () => {
+      it('sets claudeOpponent when claudeWasOpponent and game supports external moves', () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        (orchestrator as any).claudeWasOpponent = true;
+        vi.mocked(createGame).mockReturnValueOnce(createMockExternalGame());
+        callPrivate(orchestrator, 'launchGame', 'tictactoe');
+        expect(getPrivate(orchestrator, 'claudeOpponent')).toBe(true);
+        expect(getPrivate(orchestrator, 'claudeWasOpponent')).toBe(false);
+      });
+
+      it('notifies waiters with new game state when claudeWasOpponent', () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        (orchestrator as any).claudeWasOpponent = true;
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+        vi.mocked(createGame).mockReturnValueOnce(createMockExternalGame());
+        callPrivate(orchestrator, 'launchGame', 'tictactoe');
+        expect(cb).toHaveBeenCalledWith(expect.objectContaining({ game: 'tictactoe' }));
+        expect(getPrivate(orchestrator, 'turnWaiters')).toHaveLength(0);
+      });
+
+      it('flushes waiters when claudeWasOpponent but game does not support external moves', () => {
+        orchestrator = createOrchestrator({ gameId: 'snake' });
+        orchestrator.start();
+        (orchestrator as any).claudeWasOpponent = true;
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+        callPrivate(orchestrator, 'launchGame', 'snake');
+        expect(cb).toHaveBeenCalledWith(expect.objectContaining({ status: 'ended' }));
+        expect(getPrivate(orchestrator, 'claudeWasOpponent')).toBe(false);
+      });
+
+      it('does nothing special when claudeWasOpponent is false', () => {
+        orchestrator = createOrchestrator({ gameId: 'snake' });
+        orchestrator.start();
+        (orchestrator as any).claudeWasOpponent = false;
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+        callPrivate(orchestrator, 'launchGame', 'snake');
+        expect(cb).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('waitForTurn gameover reporting', () => {
+      it('returns gameover on first call', async () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        setGameOver(orchestrator);
+        const bridge = getBridge(orchestrator);
+        const state = await bridge.waitForTurn(5000);
+        expect(state).not.toBeNull();
+        expect(state.status).toBe('gameover');
+      });
+
+      it('waits on second call after gameover (does not return immediately)', async () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        setGameOver(orchestrator);
+        const bridge = getBridge(orchestrator);
+
+        // First call: returns gameover immediately
+        await bridge.waitForTurn(5000);
+
+        // Second call: should wait (add to waiters), not return immediately
+        const promise = bridge.waitForTurn(200);
+        expect(getPrivate(orchestrator, 'turnWaiters')).toHaveLength(1);
+
+        vi.advanceTimersByTime(250);
+        const state = await promise;
+        expect(state).toBeNull();
+      });
+    });
+
+    describe('minimize from menu flushes waiters', () => {
+      it('flushes waiters when claudeWasOpponent and minimizing', () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+
+        // Go to menu (preserves waiters)
+        callPrivate(orchestrator, 'switchToMenu');
+        expect(cb).not.toHaveBeenCalled();
+        expect(getPrivate(orchestrator, 'claudeWasOpponent')).toBe(true);
+
+        // Minimize from menu (flushes waiters)
+        callPrivate(orchestrator, 'onGameInput', 'escape');
+        expect(cb).toHaveBeenCalledWith(expect.objectContaining({ status: 'ended' }));
+        expect(getPrivate(orchestrator, 'claudeWasOpponent')).toBe(false);
+      });
+    });
+
+    describe('full auto-continue flow', () => {
+      it('claude waiter receives new game state when user starts new game from menu', async () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        setGameOver(orchestrator);
+        const bridge = getBridge(orchestrator);
+
+        // First wait_for_turn: gets gameover
+        const gameover = await bridge.waitForTurn(5000);
+        expect(gameover!.status).toBe('gameover');
+
+        // Second wait_for_turn: waits for new game
+        const promise = bridge.waitForTurn(30000);
+
+        // User presses escape → goes to menu
+        callPrivate(orchestrator, 'handleEscape');
+        // Waiter should NOT be flushed (claudeWasOpponent = true)
+        expect(getPrivate(orchestrator, 'turnWaiters')).toHaveLength(1);
+
+        // User selects tictactoe from menu
+        vi.mocked(createGame).mockReturnValueOnce(createMockExternalGame());
+        const menu = getPrivate(orchestrator, 'gameMenu');
+        menu.selectedGame = { id: 'tictactoe', name: 'Tic-Tac-Toe' };
+        callPrivate(orchestrator, 'onGameInput', 'enter');
+
+        // Waiter should be resolved with new game state
+        const state = await promise;
+        expect(state).not.toBeNull();
+        expect(state!.game).toBe('tictactoe');
+        expect(state!.status).not.toBe('ended');
+        expect(state!.status).not.toBe('gameover');
+        expect(getPrivate(orchestrator, 'claudeOpponent')).toBe(true);
+      });
+    });
+
+    describe('restartGame notifies waiters', () => {
+      it('notifies pending waiters when claude is opponent and game restarts', async () => {
+        orchestrator = createOrchestrator({ gameId: 'tictactoe' });
+        orchestrator.start();
+        setupClaudeGame(orchestrator);
+        setGameOver(orchestrator);
+        const bridge = getBridge(orchestrator);
+
+        // First call: gets gameover
+        await bridge.waitForTurn(5000);
+
+        // Second call: waits
+        const cb = vi.fn();
+        getPrivate(orchestrator, 'turnWaiters').push(cb);
+
+        // Restart
+        callPrivate(orchestrator, 'restartGame');
+        expect(getPrivate(orchestrator, 'gameOverReported')).toBe(false);
+        expect(cb).toHaveBeenCalled();
+      });
+    });
+  });
 });
