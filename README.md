@@ -1,3 +1,5 @@
+[![Claude Code](https://img.shields.io/badge/Claude_Code-cc785c)](https://github.com/dpkay-io/splitgame) [![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-4285F4)](https://github.com/dpkay-io/splitgame) [![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-blue)](https://github.com/dpkay-io/splitgame) [![License](https://img.shields.io/npm/l/splitgame)](https://github.com/dpkay-io/splitgame) [![fun](https://img.shields.io/badge/fun-ff69b4)](https://github.com/dpkay-io/splitgame) [![ai-tools](https://img.shields.io/badge/ai--tools-blueviolet)](https://github.com/dpkay-io/splitgame) [![npm downloads](https://img.shields.io/npm/dt/splitgame)](https://github.com/dpkay-io/splitgame) [![npm version](https://img.shields.io/npm/v/splitgame)](https://github.com/dpkay-io/splitgame) [![Node version](https://img.shields.io/node/v/splitgame)](https://github.com/dpkay-io/splitgame)
+
 # splitgame
 
 **Don't wait. Play.**
